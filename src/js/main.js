@@ -219,10 +219,10 @@ function renderApp() {
     tableBody.innerHTML = ''; // Clear table
 
     let hasError = false;
-            riskScenarios.forEach((data, index) => {
+    riskScenarios.forEach((data, index) => {
         const calculated = calculateRisk(data, thresholds);
         if (calculated) {
-                    renderRow(calculated, index);
+            renderRow(calculated, index);
         } else {
             hasError = true;
         }
