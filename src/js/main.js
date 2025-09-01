@@ -1,4 +1,5 @@
 const addButton = document.getElementById('add-risk-btn');
+const cancelButton = document.getElementById('cancel-edit-btn');
 const tableBody = document.getElementById('risk-table-body');
 const errorMessage = document.getElementById('error-message');
 
@@ -39,6 +40,31 @@ const exampleData = [
 ];
 
 let riskScenarios = [...exampleData];
+let editIndex = null;
+
+function loadScenarioForEdit(index) {
+    const scenarioData = riskScenarios[index];
+    if (!scenarioData) return;
+
+    editIndex = index;
+
+    for (const key in inputs) {
+        if(inputs[key] && scenarioData[key] !== undefined) {
+            inputs[key].value = scenarioData[key];
+        }
+    }
+
+    addButton.textContent = 'Update Scenario';
+    cancelButton.classList.remove('hidden');
+
+    // Also update the live preview
+    const thresholds = {
+        medium: parseFloat(thresholdInputs.medium.value) || 0,
+        high: parseFloat(thresholdInputs.high.value) || 0,
+        critical: parseFloat(thresholdInputs.critical.value) || 0,
+    };
+    updateLivePreview(thresholds);
+}
 
 function calculateRisk(data, thresholds) {
     const valueKeys = Object.keys(inputs).filter(k => k !== 'scenario');
@@ -98,7 +124,7 @@ function calculateRisk(data, thresholds) {
 
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-function renderRow(calculatedData) {
+function renderRow(calculatedData, index) {
     const newRow = tableBody.insertRow();
     newRow.className = 'bg-white border-b';
     newRow.innerHTML = `
@@ -107,6 +133,9 @@ function renderRow(calculatedData) {
         <td class="px-4 py-3 text-center font-mono">${calculatedData.residualARO.toFixed(2)}</td>
         <td class="px-4 py-3 text-center font-mono">${currencyFormatter.format(calculatedData.finalALE)}</td>
         <td class="px-4 py-3 text-center font-bold ${calculatedData.riskColorClass}">${calculatedData.riskLevel}</td>
+        <td class="px-4 py-3 text-center">
+            <button class="edit-btn text-blue-600 hover:underline" data-index="${index}">Edit</button>
+        </td>
     `;
 }
 
@@ -142,7 +171,22 @@ function updateRiskLevelSummary(thresholds) {
     `;
 }
 
-function addRiskFromForm() {
+function resetForm() {
+    Object.values(inputs).forEach(input => { if(input.type !== 'button') input.value = ''; });
+    editIndex = null;
+    addButton.textContent = 'Add Risk Scenario';
+    cancelButton.classList.add('hidden');
+    hideError();
+    // Also update the live preview
+    const thresholds = {
+        medium: parseFloat(thresholdInputs.medium.value) || 0,
+        high: parseFloat(thresholdInputs.high.value) || 0,
+        critical: parseFloat(thresholdInputs.critical.value) || 0,
+    };
+    updateLivePreview(thresholds);
+}
+
+function saveRiskFromForm() {
     const currentValues = {};
     for(const key in inputs) {
         currentValues[key] = inputs[key].value;
@@ -152,9 +196,16 @@ function addRiskFromForm() {
          return;
     }
 
-    riskScenarios.push(currentValues);
+    if (editIndex !== null) {
+        // Update existing scenario
+        riskScenarios[editIndex] = currentValues;
+    } else {
+        // Add new scenario
+        riskScenarios.push(currentValues);
+    }
+
     renderApp();
-    Object.values(inputs).forEach(input => { if(input.type !== 'button') input.value = ''; });
+    resetForm();
 }
 
 function renderApp() {
@@ -168,10 +219,10 @@ function renderApp() {
     tableBody.innerHTML = ''; // Clear table
 
     let hasError = false;
-    riskScenarios.forEach(data => {
+            riskScenarios.forEach((data, index) => {
         const calculated = calculateRisk(data, thresholds);
         if (calculated) {
-            renderRow(calculated);
+                    renderRow(calculated, index);
         } else {
             hasError = true;
         }
@@ -197,7 +248,8 @@ function escapeHTML(str) {
     return p.innerHTML;
 }
 
-addButton.addEventListener('click', addRiskFromForm);
+cancelButton.addEventListener('click', resetForm);
+addButton.addEventListener('click', saveRiskFromForm);
 Object.values(inputs).forEach(input => {
     input.addEventListener('input', () => {
          const thresholds = {
@@ -210,6 +262,13 @@ Object.values(inputs).forEach(input => {
 });
 Object.values(thresholdInputs).forEach(input => {
     input.addEventListener('input', renderApp);
+});
+
+tableBody.addEventListener('click', (event) => {
+    if (event.target.classList.contains('edit-btn')) {
+        const index = event.target.getAttribute('data-index');
+        loadScenarioForEdit(parseInt(index, 10));
+    }
 });
 
 window.addEventListener('DOMContentLoaded', renderApp);

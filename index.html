@@ -27,6 +27,7 @@
                         <th scope="col" class="px-4 py-3 text-center font-semibold">ARO (Annual Occurrence)</th>
                         <th scope="col" class="px-4 py-3 text-center font-semibold">ALE (Annual Loss)</th>
                         <th scope="col" class="px-4 py-3 text-center font-semibold">Risk Level</th>
+                        <th scope="col" class="px-4 py-3 text-center font-semibold">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="risk-table-body">
@@ -123,9 +124,12 @@
                     </fieldset>
                 </div>
 
-                <div class="flex items-end">
+                <div class="flex items-center space-x-4">
                     <button id="add-risk-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
                         Add Risk Scenario
+                    </button>
+                    <button id="cancel-edit-btn" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-300 hidden">
+                        Cancel
                     </button>
                 </div>
             </div>
