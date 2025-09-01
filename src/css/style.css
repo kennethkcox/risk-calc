@@ -1,0 +1,19 @@
+body {
+    font-family: 'Inter', sans-serif;
+}
+.table-cell-input {
+    padding: 0.5rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.375rem;
+    width: 100%;
+}
+fieldset {
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+legend {
+    padding: 0 0.5rem;
+    font-weight: 600;
+    color: #1f2937;
+}
