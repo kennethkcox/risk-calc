@@ -1,6 +1,6 @@
 // --- Monte Carlo Simulation Worker ---
 
-importScripts('iso27001.js');
+importScripts('iso27001.js', 'threats.js');
 
 // This worker runs the CPU-intensive risk calculation in the background
 // to avoid freezing the main UI thread.
@@ -39,7 +39,10 @@ function calculateRisk(data, thresholds, controlStates) {
 
     let magnitudeControlModifier = 1.0;
     let frequencyControlModifier = 1.0;
+    let magnitudeThreatModifier = 1.0;
+    let frequencyThreatModifier = 1.0;
 
+    // Calculate control modifiers
     if (data.applicableControls && data.applicableControls.length > 0) {
         data.applicableControls.forEach(controlId => {
             const control = ISO_27001_CONTROLS.find(c => c.id === controlId);
@@ -53,6 +56,18 @@ function calculateRisk(data, thresholds, controlStates) {
                 if (control.impacts.includes('frequency')) {
                     frequencyControlModifier *= modifier;
                 }
+            }
+        });
+    }
+
+    // Calculate threat modifiers
+    if (data.applicableThreats && data.applicableThreats.length > 0) {
+        const allThreats = Object.values(THREAT_FRAMEWORKS).flat();
+        data.applicableThreats.forEach(threatId => {
+            const threat = allThreats.find(t => t.id === threatId);
+            if (threat && threat.impacts) {
+                magnitudeThreatModifier *= (threat.impacts.sleMultiplier || 1.0);
+                frequencyThreatModifier *= (threat.impacts.aroMultiplier || 1.0);
             }
         });
     }
@@ -90,9 +105,9 @@ function calculateRisk(data, thresholds, controlStates) {
         const inherentSLE = getPertSample(minLoss, likelyLoss, maxLoss);
         const inherentARO = getPertSample(minFreq, likelyFreq, maxFreq);
 
-        const residualSLE = inherentSLE * magnitudeControlModifier;
-        // Apply both control and exposure modifiers to the frequency
-        const residualARO = inherentARO * frequencyControlModifier * exposureModifier;
+        const residualSLE = inherentSLE * magnitudeControlModifier * magnitudeThreatModifier;
+        // Apply control, exposure, and threat modifiers to the frequency
+        const residualARO = inherentARO * frequencyControlModifier * exposureModifier * frequencyThreatModifier;
         const finalALE = residualSLE * residualARO;
 
         simulatedSles.push(residualSLE);
