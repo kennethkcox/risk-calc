@@ -44,6 +44,7 @@ let calculatedScenarios = [];
 let editIndex = null;
 let riskChart = null;
 let histogramChart = null;
+let livePreviewWorker = null;
 const chartContainer = document.getElementById('chart-container');
 const detailsModal = document.getElementById('details-modal');
 const modalCloseButton = document.getElementById('modal-close-btn');
@@ -51,6 +52,32 @@ const modalTitle = document.getElementById('modal-title');
 
 function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(riskScenarios));
+}
+
+function initializeLivePreviewWorker() {
+    if (window.Worker) {
+        // Only create one worker for the live preview for efficiency
+        if (!livePreviewWorker) {
+            livePreviewWorker = new Worker('src/js/risk-worker.js');
+            livePreviewWorker.onmessage = function(e) {
+                const calculatedData = e.data;
+                if (calculatedData && !calculatedData.error) {
+                    previewElements.sle.textContent = currencyFormatter.format(calculatedData.meanSLE);
+                    previewElements.aro.textContent = calculatedData.meanARO.toFixed(2);
+                    previewElements.ale.textContent = currencyFormatter.format(calculatedData.meanALE);
+                    previewElements.level.textContent = calculatedData.riskLevel;
+                    previewElements.level.className = `mt-1 text-lg font-bold p-2 rounded-md ${calculatedData.riskColorClass}`;
+                } else {
+                    // Handle potential error from worker if needed
+                    previewElements.sle.textContent = '-';
+                    previewElements.aro.textContent = '-';
+                    previewElements.ale.textContent = '-';
+                    previewElements.level.textContent = '-';
+                    previewElements.level.className = 'mt-1 text-lg font-bold p-2 rounded-md bg-gray-200 text-gray-500';
+                }
+            }
+        }
+    }
 }
 
 function initializeScenarios() {
@@ -88,104 +115,7 @@ function loadScenarioForEdit(index) {
     updateLivePreview(thresholds);
 }
 
-function calculateRisk(data, thresholds) {
-    const NUM_TRIALS = 100; // Reduced for performance. TODO: Move to a web worker.
-    const PERT_GAMMA = 4;
-
-    const valueKeys = Object.keys(inputs).filter(k => k !== 'scenario');
-    const allValues = valueKeys.map(key => data[key]);
-    const parsedVals = allValues.map(v => parseFloat(v));
-
-    if (parsedVals.some(isNaN)) {
-        return null;
-    }
-
-    const [confImpact, integImpact, availImpact, minLoss, likelyLoss, maxLoss, minFreq, likelyFreq, maxFreq] = parsedVals;
-
-    if (minLoss > likelyLoss || likelyLoss > maxLoss || minFreq > likelyFreq || likelyFreq > maxFreq) {
-        showError("Min values cannot be greater than Likely or Max values.");
-        return null;
-    } else if (thresholds.medium >= thresholds.high || thresholds.high >= thresholds.critical) {
-        showError("Risk level thresholds must be in increasing order.");
-        return null;
-    }
-    hideError();
-
-    let combinedModifier = 1.0;
-    if (data.applicableControls && data.applicableControls.length > 0) {
-        const controlEffectivenessValues = data.applicableControls.map(id => {
-            const state = getControlState(id);
-            // Only consider controls that are marked as implemented
-            return state.implemented ? state.effectiveness : 0;
-        });
-
-        // Convert effectiveness (0-100) to individual risk reduction modifiers (1.0 - 0.0)
-        // and multiply them to get a combined modifier.
-        const controlModifiers = controlEffectivenessValues.map(eff => 1 - (eff / 100));
-        if (controlModifiers.length > 0) {
-            combinedModifier = controlModifiers.reduce((acc, val) => acc * val, 1.0);
-        }
-    }
-
-    // A key simplification in this model is applying a single, combined modifier to both
-    // financial loss (magnitude) and event frequency. This assumes that the implemented
-    // controls are, on average, equally effective at reducing both the likelihood and
-    // the impact of a risk event.
-    //
-    // A future enhancement would be to classify each ISO control based on whether it
-    // primarily affects frequency (e.g., a firewall), magnitude (e.g., a backup system),
-    // or both, and then calculate separate modifiers for each.
-    const magnitudeControlModifier = combinedModifier;
-    const frequencyControlModifier = combinedModifier;
-
-    // Helper for PERT sampling using Normal Approximation
-    const getPertSample = (min, mostLikely, max) => {
-        if (max === min) return min;
-        const meanVal = (min + PERT_GAMMA * mostLikely + max) / (PERT_GAMMA + 2);
-        const stdDev = (max - min) / (PERT_GAMMA + 2);
-        let sample = meanVal + stdDev * random_normal();
-        return Math.max(min, Math.min(sample, max)); // Clamp to bounds
-    };
-
-    const simulatedAles = [];
-    const simulatedSles = [];
-    const simulatedAros = [];
-
-    for (let i = 0; i < NUM_TRIALS; i++) {
-        const inherentSLE = getPertSample(minLoss, likelyLoss, maxLoss);
-        const inherentARO = getPertSample(minFreq, likelyFreq, maxFreq);
-
-        const residualSLE = inherentSLE * magnitudeControlModifier;
-        const residualARO = inherentARO * frequencyControlModifier;
-        const finalALE = residualSLE * residualARO;
-
-        simulatedSles.push(residualSLE);
-        simulatedAros.push(residualARO);
-        simulatedAles.push(finalALE);
-    }
-
-    const meanALE = mean(simulatedAles);
-    const p90ALE = quantile(simulatedAles, 0.9);
-    const meanSLE = mean(simulatedSles);
-    const meanARO = mean(simulatedAros);
-
-    let riskLevel, riskColorClass;
-    if (meanALE >= thresholds.critical) {
-        riskLevel = "Critical";
-        riskColorClass = "bg-red-600 text-white";
-    } else if (meanALE >= thresholds.high) {
-        riskLevel = "High";
-        riskColorClass = "bg-orange-500 text-white";
-    } else if (meanALE >= thresholds.medium) {
-        riskLevel = "Medium";
-        riskColorClass = "bg-yellow-400 text-black";
-    } else {
-        riskLevel = "Low";
-        riskColorClass = "bg-green-500 text-white";
-    }
-
-    return { ...data, meanSLE, meanARO, meanALE, p90ALE, riskLevel, riskColorClass, rawAles: simulatedAles };
-}
+// All calculation logic has been moved to src/js/risk-worker.js
 
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
@@ -286,25 +216,33 @@ function renderRiskChart(calculatedScenarios) {
 }
 
 function updateLivePreview(thresholds) {
+    if (!livePreviewWorker) {
+        console.error("Live preview worker not initialized.");
+        return;
+    }
+
     const currentValues = {};
-    for(const key in inputs) {
+    for (const key in inputs) {
         currentValues[key] = inputs[key].value;
     }
-    const calculatedData = calculateRisk(currentValues, thresholds);
+    // Get applicable controls from the form
+    const selectedControls = [];
+    const controlCheckboxes = document.querySelectorAll('#applicable-controls-container input[type="checkbox"]:checked');
+    controlCheckboxes.forEach(cb => selectedControls.push(cb.value));
+    currentValues.applicableControls = selectedControls;
 
-    if (calculatedData) {
-        previewElements.sle.textContent = currencyFormatter.format(calculatedData.meanSLE);
-        previewElements.aro.textContent = calculatedData.meanARO.toFixed(2);
-        previewElements.ale.textContent = currencyFormatter.format(calculatedData.meanALE);
-        previewElements.level.textContent = calculatedData.riskLevel;
-        previewElements.level.className = `mt-1 text-lg font-bold p-2 rounded-md ${calculatedData.riskColorClass}`;
-    } else {
-        previewElements.sle.textContent = '-';
-        previewElements.aro.textContent = '-';
-        previewElements.ale.textContent = '-';
-        previewElements.level.textContent = '-';
-        previewElements.level.className = 'mt-1 text-lg font-bold p-2 rounded-md bg-gray-200 text-gray-500';
-    }
+    // Show loading state
+    previewElements.sle.textContent = '...';
+    previewElements.aro.textContent = '...';
+    previewElements.ale.textContent = '...';
+    previewElements.level.textContent = '...';
+    previewElements.level.className = 'mt-1 text-lg font-bold p-2 rounded-md bg-gray-200 text-gray-500';
+
+    livePreviewWorker.postMessage({
+        scenarioData: currentValues,
+        thresholds: thresholds,
+        controlStates: getControlStates() // Send a snapshot of all control states
+    });
 }
 
 function updateRiskLevelSummary(thresholds) {
@@ -406,34 +344,29 @@ function getSuggestedControls(scenario) {
 
     // Suggest based on impact
     ISO_27001_CONTROLS.forEach(control => {
-        if (confImpact > 1 && control.riskMappings.includes('confidentiality')) {
+        // If any C, I, or A impact is high, suggest controls that reduce magnitude
+        if ((confImpact > 1 || integImpact > 1 || availImpact > 1) && control.impacts.includes('magnitude')) {
             suggestions.add(control.id);
         }
-        if (integImpact > 1 && control.riskMappings.includes('integrity')) {
-            suggestions.add(control.id);
-        }
-        if (availImpact > 1 && control.riskMappings.includes('availability')) {
+
+        // Suggest frequency-related controls only if the event is somewhat likely
+        if (likelyFreq > 0.5 && control.impacts.includes('frequency')) {
             suggestions.add(control.id);
         }
 
         // Suggest based on keywords in the scenario description
-        const keywords = ['phishing', 'malware', 'ransomware', 'unauthorized', 'misconfiguration', 'disruption', 'leakage', 'theft', 'legal', 'privacy', 'PII'];
+        const keywords = ['phishing', 'malware', 'ransomware', 'unauthorized', 'misconfiguration', 'disruption', 'leakage', 'theft', 'legal', 'privacy', 'pii'];
         keywords.forEach(keyword => {
             if (scenarioText.includes(keyword) && control.description.toLowerCase().includes(keyword)) {
                 suggestions.add(control.id);
             }
         });
-
-        // Suggest frequency-related controls only if the event is likely to happen more than once a year
-        if (likelyFreq > 1 && control.riskMappings.includes('frequency')) {
-            suggestions.add(control.id);
-        }
     });
 
     return Array.from(suggestions);
 }
 
-function renderApp() {
+async function renderApp() {
     const thresholds = {
         medium: parseFloat(thresholdInputs.medium.value) || 0,
         high: parseFloat(thresholdInputs.high.value) || 0,
@@ -441,24 +374,71 @@ function renderApp() {
     };
 
     updateRiskLevelSummary(thresholds);
-    tableBody.innerHTML = ''; // Clear table
+    tableBody.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-gray-500">
+        <div class="flex justify-center items-center space-x-2">
+            <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>Running simulations... This may take a moment.</span>
+        </div>
+    </td></tr>`;
 
     calculatedScenarios = []; // Reset the global array
-    let hasError = false;
-    riskScenarios.forEach((data, index) => {
-        const calculated = calculateRisk(data, thresholds);
-        if (calculated) {
-            calculatedScenarios.push(calculated);
-            renderRow(calculated, index);
-        } else {
-            hasError = true;
-        }
+    const allControlStates = getControlStates();
+
+    const calculationPromises = riskScenarios.map(scenarioData => {
+        return new Promise((resolve, reject) => {
+            if (!window.Worker) {
+                // Fallback for very old browsers, though not the primary target
+                // This would require bringing calculateRisk back for a non-worker path
+                console.error("Web Workers are not supported in this browser.");
+                reject(new Error("Web Workers not supported."));
+                return;
+            }
+            const worker = new Worker('src/js/risk-worker.js');
+            worker.onmessage = e => {
+                worker.terminate();
+                resolve(e.data);
+            };
+            worker.onerror = e => {
+                worker.terminate();
+                reject(new Error(`Worker error: ${e.message}`));
+            };
+            worker.postMessage({
+                scenarioData: scenarioData,
+                thresholds: thresholds,
+                controlStates: allControlStates
+            });
+        });
     });
 
-    if(!hasError) hideError();
+    try {
+        const results = await Promise.all(calculationPromises);
+        tableBody.innerHTML = ''; // Clear loading message
+        let hasError = false;
 
-    renderRiskChart(calculatedScenarios);
-    updateLivePreview(thresholds);
+        results.forEach((calculated, index) => {
+            if (calculated && !calculated.error) {
+                calculatedScenarios.push(calculated);
+                renderRow(calculated, index);
+            } else {
+                hasError = true;
+                const originalScenario = riskScenarios[index];
+                showError(`Error calculating scenario: "${originalScenario.scenario}". ${calculated.error || ''}`);
+            }
+        });
+
+        if (!hasError) hideError();
+
+    } catch (error) {
+        console.error("An error occurred during risk calculation:", error);
+        showError("A critical error occurred. Please check the console or refresh the page.");
+        tableBody.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-red-500">Calculation failed. Please refresh.</td></tr>`;
+    } finally {
+        renderRiskChart(calculatedScenarios);
+        updateLivePreview(thresholds);
+    }
 }
 
 function showError(message) {
@@ -570,34 +550,87 @@ function renderHistogram(ales) {
     });
 }
 
-function random_normal() {
-    let u = 0, v = 0;
-    while(u === 0) u = Math.random();
-    while(v === 0) v = Math.random();
-    return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+// Helper functions (mean, quantile, random_normal) are now in the worker.
+
+function exportData() {
+    const data = {
+        scenarios: riskScenarios,
+        controls: getControlStates(),
+        thresholds: {
+            medium: thresholdInputs.medium.value,
+            high: thresholdInputs.high.value,
+            critical: thresholdInputs.critical.value,
+        }
+    };
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const date = new Date().toISOString().slice(0, 10);
+    a.download = `risk-analysis-${date}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
 
-function mean(arr) {
-    if (arr.length === 0) return 0;
-    return arr.reduce((a, b) => a + b, 0) / arr.length;
+function importData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (!data.scenarios || !data.controls || !data.thresholds) {
+                throw new Error("Invalid or corrupted JSON file format.");
+            }
+
+            // Load data
+            riskScenarios = data.scenarios;
+            saveControlStates(data.controls); // Need to create this function in controls.js
+            thresholdInputs.medium.value = data.thresholds.medium;
+            thresholdInputs.high.value = data.thresholds.high;
+            thresholdInputs.critical.value = data.thresholds.critical;
+
+            // Save and re-render
+            saveState();
+            initializeControls(); // Re-init controls from the new state
+            renderApp();
+            renderControlLibrary();
+            showError("Data imported successfully."); // Use error message for feedback
+        } catch (error) {
+            console.error("Import failed:", error);
+            showError(`Import failed: ${error.message}`);
+        } finally {
+            // Reset file input so the same file can be loaded again
+            event.target.value = '';
+        }
+    };
+    reader.readAsText(file);
 }
 
-function quantile(arr, q) {
-    if (arr.length === 0) return 0;
-    const sorted = arr.slice().sort((a, b) => a - b);
-    const pos = (sorted.length - 1) * q;
-    const base = Math.floor(pos);
-    const rest = pos - base;
-    if (sorted[base + 1] !== undefined) {
-        return sorted[base] + rest * (sorted[base + 1] - sorted[base]);
-    } else {
-        return sorted[base];
-    }
-}
 
 cancelButton.addEventListener('click', resetForm);
 addButton.addEventListener('click', saveRiskFromForm);
 modalCloseButton.addEventListener('click', closeDetailsModal);
+
+document.getElementById('export-btn').addEventListener('click', exportData);
+document.getElementById('import-btn').addEventListener('click', () => document.getElementById('import-file-input').click());
+document.getElementById('import-file-input').addEventListener('change', importData);
+
+const searchInput = document.getElementById('control-search-input');
+const categoryFilter = document.getElementById('control-category-filter');
+
+function handleControlFilterChange() {
+    const searchTerm = searchInput.value.toLowerCase();
+    const category = categoryFilter.value;
+    renderControlLibrary(searchTerm, category);
+}
+
+searchInput.addEventListener('input', handleControlFilterChange);
+categoryFilter.addEventListener('change', handleControlFilterChange);
 
 suggestButton.addEventListener('click', () => {
     const currentValues = {};
@@ -620,12 +653,41 @@ suggestButton.addEventListener('click', () => {
         }
     });
 });
-clearDataButton.addEventListener('click', () => {
-    if (confirm('Are you sure you want to clear all scenarios? This will remove any saved data.')) {
-        localStorage.removeItem(STORAGE_KEY);
-        riskScenarios = []; // Clear the array
-        renderApp();
+const confirmModal = document.getElementById('confirm-modal');
+const confirmActionButton = document.getElementById('confirm-action-btn');
+const confirmCancelButton = document.getElementById('confirm-cancel-btn');
+let confirmCallback = null;
+
+function showConfirmModal(callback, title = "Are you sure?", body = "This action cannot be undone.") {
+    document.getElementById('confirm-modal-title').textContent = title;
+    document.getElementById('confirm-modal-body').textContent = body;
+    confirmCallback = callback;
+    confirmModal.classList.remove('hidden');
+}
+
+function hideConfirmModal() {
+    confirmModal.classList.add('hidden');
+    confirmCallback = null;
+}
+
+confirmActionButton.addEventListener('click', () => {
+    if (typeof confirmCallback === 'function') {
+        confirmCallback();
     }
+    hideConfirmModal();
+});
+
+confirmCancelButton.addEventListener('click', hideConfirmModal);
+
+clearDataButton.addEventListener('click', () => {
+    showConfirmModal(() => {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(CONTROLS_STORAGE_KEY); // Also clear controls
+        riskScenarios = []; // Clear the array
+        initializeControls(); // Reset controls to default
+        renderApp();
+        renderControlLibrary();
+    }, 'Clear All Data?', 'Are you sure you want to clear all scenarios and control settings? This will remove all saved data.');
 });
 
 Object.values(inputs).forEach(input => {
@@ -653,11 +715,25 @@ tableBody.addEventListener('click', (event) => {
     }
 });
 
-function renderControlLibrary() {
+function renderControlLibrary(searchTerm = '', categoryFilter = '') {
     const container = document.getElementById('control-library-container');
     container.innerHTML = ''; // Clear existing content
 
-    const controlsByCategory = ISO_27001_CONTROLS.reduce((acc, control) => {
+    const filteredControls = ISO_27001_CONTROLS.filter(control => {
+        const matchesCategory = !categoryFilter || control.category === categoryFilter;
+        const matchesSearch = !searchTerm ||
+            control.id.toLowerCase().includes(searchTerm) ||
+            control.name.toLowerCase().includes(searchTerm) ||
+            control.description.toLowerCase().includes(searchTerm);
+        return matchesCategory && matchesSearch;
+    });
+
+    if (filteredControls.length === 0) {
+        container.innerHTML = '<p class="text-center text-gray-500">No controls match the current filters.</p>';
+        return;
+    }
+
+    const controlsByCategory = filteredControls.reduce((acc, control) => {
         if (!acc[control.category]) {
             acc[control.category] = [];
         }
@@ -763,7 +839,8 @@ function renderControlLibrary() {
 
 window.addEventListener('DOMContentLoaded', () => {
     initializeScenarios();
-    initializeControls(); // New
+    initializeControls();
+    initializeLivePreviewWorker();
     renderApp();
-    renderControlLibrary(); // New
+    renderControlLibrary();
 });

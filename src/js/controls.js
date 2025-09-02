@@ -36,3 +36,12 @@ function updateControlState(controlId, implemented, effectiveness) {
 function getImplementedControls() {
     return Object.keys(controlState).filter(id => controlState[id].implemented);
 }
+
+function getControlStates() {
+    return controlState;
+}
+
+function saveControlStates(newState) {
+    controlState = newState;
+    saveControlState();
+}
