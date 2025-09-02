@@ -9,6 +9,7 @@ const STORAGE_KEY = 'riskCalculatorScenarios';
 
 const inputs = {
     scenario: document.getElementById('scenario'),
+    internet_exposure: document.getElementById('internet_exposure'),
     conf_impact: document.getElementById('conf_impact'),
     integ_impact: document.getElementById('integ_impact'),
     avail_impact: document.getElementById('avail_impact'),
