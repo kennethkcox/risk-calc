@@ -83,8 +83,10 @@ function initializeLivePreviewWorker() {
 
 function initializeScenarios() {
     const savedScenarios = localStorage.getItem(STORAGE_KEY);
-    if (savedScenarios) {
-        riskScenarios = JSON.parse(savedScenarios);
+    const parsedScenarios = savedScenarios ? JSON.parse(savedScenarios) : null;
+
+    if (parsedScenarios && parsedScenarios.length > 0) {
+        riskScenarios = parsedScenarios;
     } else {
         riskScenarios = [...exampleData];
     }
@@ -131,6 +133,7 @@ function renderRow(calculatedData, index) {
         <td class="px-4 py-3 text-center font-mono">${currencyFormatter.format(calculatedData.p90ALE)}</td>
         <td class="px-4 py-3 text-center font-bold ${calculatedData.riskColorClass}">${calculatedData.riskLevel}</td>
         <td class="px-4 py-3 text-center">
+            <button class="clone-btn text-purple-600 hover:underline mr-2" data-index="${index}">Clone</button>
             <button class="edit-btn text-blue-600 hover:underline mr-2" data-index="${index}">Edit</button>
             <button class="details-btn text-green-600 hover:underline" data-index="${index}">Details</button>
         </td>
@@ -140,16 +143,22 @@ function renderRow(calculatedData, index) {
 function renderRiskChart(calculatedScenarios) {
     const riskChartCanvas = document.getElementById('risk-chart');
     const chartPlaceholder = document.getElementById('chart-placeholder');
+    const tablePlaceholder = document.getElementById('table-placeholder');
+    const loadExamplesButton = document.getElementById('load-examples-btn');
 
     if (calculatedScenarios.length === 0) {
         riskChartCanvas.classList.add('hidden');
         chartPlaceholder.classList.remove('hidden');
+        tablePlaceholder.classList.remove('hidden');
+        loadExamplesButton.classList.remove('hidden');
         if(riskChart) {
             riskChart.destroy();
             riskChart = null;
         }
         return;
     }
+    tablePlaceholder.classList.add('hidden');
+    loadExamplesButton.classList.add('hidden');
     riskChartCanvas.classList.remove('hidden');
     chartPlaceholder.classList.add('hidden');
 
@@ -336,35 +345,78 @@ saveState();
 }
 
 function getSuggestedControls(scenario) {
-    const suggestions = new Set();
+    const suggestions = new Map(); // Use a Map to store suggestion and its reason
     const scenarioText = scenario.scenario.toLowerCase();
     const confImpact = parseInt(scenario.conf_impact, 10) || 0;
     const integImpact = parseInt(scenario.integ_impact, 10) || 0;
     const availImpact = parseInt(scenario.avail_impact, 10) || 0;
-    const likelyFreq = parseFloat(scenario.likely_freq) || 0;
 
-    // Suggest based on impact
+    const implementedControls = getImplementedControls();
+
     ISO_27001_CONTROLS.forEach(control => {
-        // If any C, I, or A impact is high, suggest controls that reduce magnitude
-        if ((confImpact > 1 || integImpact > 1 || availImpact > 1) && control.impacts.includes('magnitude')) {
-            suggestions.add(control.id);
+        // Skip if already implemented
+        if (implementedControls.includes(control.id)) {
+            return;
         }
 
-        // Suggest frequency-related controls only if the event is somewhat likely
-        if (likelyFreq > 0.5 && control.impacts.includes('frequency')) {
-            suggestions.add(control.id);
+        let relevance = 0;
+        let reason = '';
+
+        // 1. High-priority suggestions based on C-I-A impact of 3
+        if (confImpact === 3 && control.cia.includes('C')) {
+            relevance += 3;
+            reason = 'High Confidentiality Impact';
+        }
+        if (integImpact === 3 && control.cia.includes('I')) {
+            relevance += 3;
+            reason = reason ? `${reason}, High Integrity Impact` : 'High Integrity Impact';
+        }
+        if (availImpact === 3 && control.cia.includes('A')) {
+            relevance += 3;
+            reason = reason ? `${reason}, High Availability Impact` : 'High Availability Impact';
         }
 
-        // Suggest based on keywords in the scenario description
-        const keywords = ['phishing', 'malware', 'ransomware', 'unauthorized', 'misconfiguration', 'disruption', 'leakage', 'theft', 'legal', 'privacy', 'pii'];
-        keywords.forEach(keyword => {
-            if (scenarioText.includes(keyword) && control.description.toLowerCase().includes(keyword)) {
-                suggestions.add(control.id);
+        // 2. Medium-priority suggestions based on C-I-A impact of 2
+        if (confImpact === 2 && control.cia.includes('C')) {
+            relevance += 1;
+            reason = reason || 'Medium Confidentiality Impact';
+        }
+        if (integImpact === 2 && control.cia.includes('I')) {
+            relevance += 1;
+            reason = reason || 'Medium Integrity Impact';
+        }
+        if (availImpact === 2 && control.cia.includes('A')) {
+            relevance += 1;
+            reason = reason || 'Medium Availability Impact';
+        }
+
+        // 3. Keyword-based suggestions
+        const keywords = {
+            'phishing': 2, 'malware': 2, 'ransomware': 3, 'unauthorized': 2, 'misconfiguration': 2,
+            'disruption': 2, 'leakage': 3, 'theft': 2, 'privacy': 3, 'pii': 3, 'dos': 2, 'denial of service': 2
+        };
+        for (const keyword in keywords) {
+            if (scenarioText.includes(keyword)) {
+                relevance += keywords[keyword];
+                reason = reason || `Keyword: ${keyword}`;
             }
-        });
+        }
+
+        if (relevance > 0) {
+            if (suggestions.has(control.id)) {
+                suggestions.get(control.id).relevance += relevance;
+            } else {
+                suggestions.set(control.id, { id: control.id, relevance });
+            }
+        }
     });
 
-    return Array.from(suggestions);
+    // Sort suggestions by relevance, highest first
+    const sortedSuggestions = Array.from(suggestions.values())
+        .sort((a, b) => b.relevance - a.relevance);
+
+    // Return top 5-10 suggestions
+    return sortedSuggestions.slice(0, 10).map(s => s.id);
 }
 
 async function renderApp() {
@@ -709,10 +761,27 @@ tableBody.addEventListener('click', (event) => {
     if (event.target.classList.contains('edit-btn')) {
         const index = event.target.getAttribute('data-index');
         loadScenarioForEdit(parseInt(index, 10));
+        return; // Stop further processing
     }
     if (event.target.classList.contains('details-btn')) {
         const index = event.target.getAttribute('data-index');
         openDetailsModal(parseInt(index, 10));
+        return; // Stop further processing
+    }
+    if (event.target.classList.contains('clone-btn')) {
+        const index = parseInt(event.target.getAttribute('data-index'), 10);
+        const scenarioToClone = riskScenarios[index];
+        if (scenarioToClone) {
+            // Create a deep copy
+            const clonedScenario = JSON.parse(JSON.stringify(scenarioToClone));
+            clonedScenario.scenario = `${clonedScenario.scenario} (copy)`;
+
+            // Add the cloned scenario right after the original one
+            riskScenarios.splice(index + 1, 0, clonedScenario);
+
+            saveState();
+            renderApp();
+        }
     }
 });
 
@@ -871,6 +940,65 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // Open the "Add New Risk Scenario" section by default
     openSectionByDefault('input-form-content', 'input-form-toggle-icon');
+
+    // --- New Theme Switcher Logic ---
+    const themeSwitcherContainer = document.getElementById('theme-switcher-container');
+    const THEME_STORAGE_KEY = 'riskCalculatorTheme';
+
+    function applyTheme(theme) {
+        if (theme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        } else {
+            document.documentElement.removeAttribute('data-theme');
+        }
+    }
+
+    function createThemeSwitcher(currentTheme) {
+        const label = document.createElement('label');
+        label.htmlFor = 'theme-toggle-checkbox';
+        label.className = 'theme-toggle';
+        label.setAttribute('title', 'Toggle dark mode');
+
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.id = 'theme-toggle-checkbox';
+        input.className = 'hidden';
+        input.checked = currentTheme === 'dark';
+
+        const indicator = document.createElement('div');
+        indicator.className = 'theme-toggle-indicator';
+
+        label.appendChild(input);
+        label.appendChild(indicator);
+
+        input.addEventListener('change', () => {
+            const newTheme = input.checked ? 'dark' : 'light';
+            localStorage.setItem(THEME_STORAGE_KEY, newTheme);
+            applyTheme(newTheme);
+        });
+
+        themeSwitcherContainer.appendChild(label);
+    }
+
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const initialTheme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
+
+    applyTheme(initialTheme);
+    createThemeSwitcher(initialTheme);
+
+    // --- End of Theme Switcher Logic ---
+
+    // --- New "Load Examples" Logic ---
+    const loadExamplesButton = document.getElementById('load-examples-btn');
+    loadExamplesButton.addEventListener('click', () => {
+        showConfirmModal(() => {
+            riskScenarios = [...exampleData];
+            saveState();
+            renderApp();
+        }, 'Load Example Scenarios?', 'This will overwrite your current scenarios. Are you sure?');
+    });
+    // --- End of "Load Examples" Logic ---
 
     initializeScenarios();
     initializeControls();
