@@ -25,6 +25,8 @@ function calculateRisk(data, thresholds, controlStates) {
     const allValues = valueKeys.map(key => data[key]);
     const parsedVals = allValues.map(v => parseFloat(v));
 
+    // internet_exposure is a string, not a float, so we handle it separately.
+    const { internet_exposure } = data;
     if (parsedVals.some(isNaN)) {
         return { ...data, error: "Invalid number format in inputs." };
     }
@@ -55,6 +57,23 @@ function calculateRisk(data, thresholds, controlStates) {
         });
     }
 
+    let exposureModifier = 1.0;
+    switch (internet_exposure) {
+        case 'Limited':
+            exposureModifier = 1.5;
+            break;
+        case 'High':
+            exposureModifier = 2.0;
+            break;
+        case 'Critical':
+            exposureModifier = 3.0;
+            break;
+        case 'Internal':
+        default:
+            exposureModifier = 1.0;
+            break;
+    }
+
     const getPertSample = (min, mostLikely, max) => {
         if (max === min) return min;
         const meanVal = (min + PERT_GAMMA * mostLikely + max) / (PERT_GAMMA + 2);
@@ -72,7 +91,8 @@ function calculateRisk(data, thresholds, controlStates) {
         const inherentARO = getPertSample(minFreq, likelyFreq, maxFreq);
 
         const residualSLE = inherentSLE * magnitudeControlModifier;
-        const residualARO = inherentARO * frequencyControlModifier;
+        // Apply both control and exposure modifiers to the frequency
+        const residualARO = inherentARO * frequencyControlModifier * exposureModifier;
         const finalALE = residualSLE * residualARO;
 
         simulatedSles.push(residualSLE);
