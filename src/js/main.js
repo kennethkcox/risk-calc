@@ -845,14 +845,23 @@ window.addEventListener('DOMContentLoaded', () => {
     const controlLibraryToggleIcon = document.getElementById('control-library-toggle-icon');
 
     if (controlLibraryContent && controlLibraryToggleIcon && controlLibraryHeader) {
-        console.log("All elements found, setting up toggle.");
         // Start with the library closed by default.
         controlLibraryHeader.addEventListener('click', () => {
             controlLibraryContent.classList.toggle('open');
             controlLibraryToggleIcon.classList.toggle('open');
         });
-    } else {
-        console.error("Could not find one or more control library elements.");
+    }
+
+    // Setup collapsible guide
+    const guideHeader = document.getElementById('guide-header');
+    const guideContent = document.getElementById('guide-content');
+    const guideToggleIcon = document.getElementById('guide-toggle-icon');
+
+    if (guideHeader && guideContent && guideToggleIcon) {
+        guideHeader.addEventListener('click', () => {
+            guideContent.classList.toggle('open');
+            guideToggleIcon.classList.toggle('open');
+        });
     }
 
     initializeScenarios();

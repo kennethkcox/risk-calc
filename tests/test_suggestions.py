@@ -39,6 +39,9 @@ def test_suggestion_engine(http_server):
         # Check for JS errors
         assert len(errors) == 0, f"JavaScript errors on page: {[e.message for e in errors]}"
 
+        # Open the control library
+        page.click("#control-library-header")
+
         # 1. Implement all controls
         library_checkbox_locator = page.locator('[id^="control-A."]')
         count = library_checkbox_locator.count()
