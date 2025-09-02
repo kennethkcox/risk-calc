@@ -838,6 +838,22 @@ function renderControlLibrary(searchTerm = '', categoryFilter = '') {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+    // Setup collapsible control library first, as it's independent of data loading.
+    const controlLibraryHeader = document.getElementById('control-library-header');
+    const controlLibraryContent = document.getElementById('control-library-content');
+    const controlLibraryToggleIcon = document.getElementById('control-library-toggle-icon');
+
+    if (controlLibraryContent && controlLibraryToggleIcon && controlLibraryHeader) {
+        console.log("All elements found, setting up toggle.");
+        // Start with the library closed by default.
+        controlLibraryHeader.addEventListener('click', () => {
+            controlLibraryContent.classList.toggle('open');
+            controlLibraryToggleIcon.classList.toggle('open');
+        });
+    } else {
+        console.error("Could not find one or more control library elements.");
+    }
+
     initializeScenarios();
     initializeControls();
     initializeLivePreviewWorker();
