@@ -851,6 +851,16 @@ function setupCollapsible(headerId, contentId, iconId) {
     }
 }
 
+function openSectionByDefault(contentId, iconId) {
+    const content = document.getElementById(contentId);
+    const icon = document.getElementById(iconId);
+
+    if (content && icon) {
+        content.classList.add('open');
+        icon.classList.add('open');
+    }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
     // Setup all collapsible sections
     setupCollapsible('guide-header', 'guide-content', 'guide-toggle-icon');
@@ -858,6 +868,9 @@ window.addEventListener('DOMContentLoaded', () => {
     setupCollapsible('input-form-header', 'input-form-content', 'input-form-toggle-icon');
     setupCollapsible('risk-chart-header', 'risk-chart-content', 'risk-chart-toggle-icon');
     setupCollapsible('risk-table-header', 'risk-table-content', 'risk-table-toggle-icon');
+
+    // Open the "Add New Risk Scenario" section by default
+    openSectionByDefault('input-form-content', 'input-form-toggle-icon');
 
     initializeScenarios();
     initializeControls();
