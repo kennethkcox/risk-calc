@@ -1,6 +1,7 @@
 const addButton = document.getElementById('add-risk-btn');
 const cancelButton = document.getElementById('cancel-edit-btn');
 const clearDataButton = document.getElementById('clear-data-btn');
+const suggestButton = document.getElementById('suggest-controls-btn');
 const tableBody = document.getElementById('risk-table-body');
 const errorMessage = document.getElementById('error-message');
 
@@ -389,6 +390,43 @@ saveState();
     resetForm();
 }
 
+function getSuggestedControls(scenario) {
+    const suggestions = new Set();
+    const scenarioText = scenario.scenario.toLowerCase();
+    const confImpact = parseInt(scenario.conf_impact, 10) || 0;
+    const integImpact = parseInt(scenario.integ_impact, 10) || 0;
+    const availImpact = parseInt(scenario.avail_impact, 10) || 0;
+    const likelyFreq = parseFloat(scenario.likely_freq) || 0;
+
+    // Suggest based on impact
+    ISO_27001_CONTROLS.forEach(control => {
+        if (confImpact > 1 && control.riskMappings.includes('confidentiality')) {
+            suggestions.add(control.id);
+        }
+        if (integImpact > 1 && control.riskMappings.includes('integrity')) {
+            suggestions.add(control.id);
+        }
+        if (availImpact > 1 && control.riskMappings.includes('availability')) {
+            suggestions.add(control.id);
+        }
+
+        // Suggest based on keywords in the scenario description
+        const keywords = ['phishing', 'malware', 'ransomware', 'unauthorized', 'misconfiguration', 'disruption', 'leakage', 'theft', 'legal', 'privacy', 'PII'];
+        keywords.forEach(keyword => {
+            if (scenarioText.includes(keyword) && control.description.toLowerCase().includes(keyword)) {
+                suggestions.add(control.id);
+            }
+        });
+
+        // Suggest frequency-related controls only if the event is likely to happen more than once a year
+        if (likelyFreq > 1 && control.riskMappings.includes('frequency')) {
+            suggestions.add(control.id);
+        }
+    });
+
+    return Array.from(suggestions);
+}
+
 function renderApp() {
     const thresholds = {
         medium: parseFloat(thresholdInputs.medium.value) || 0,
@@ -554,6 +592,28 @@ function quantile(arr, q) {
 cancelButton.addEventListener('click', resetForm);
 addButton.addEventListener('click', saveRiskFromForm);
 modalCloseButton.addEventListener('click', closeDetailsModal);
+
+suggestButton.addEventListener('click', () => {
+    const currentValues = {};
+    for(const key in inputs) {
+        currentValues[key] = inputs[key].value;
+    }
+
+    if (!currentValues.scenario.trim()) {
+        showError("Please enter a scenario description to get suggestions.");
+        return;
+    }
+    hideError();
+
+    const suggestedIds = getSuggestedControls(currentValues);
+    const controlCheckboxes = document.querySelectorAll('#applicable-controls-container input[type="checkbox"]');
+
+    controlCheckboxes.forEach(checkbox => {
+        if (suggestedIds.includes(checkbox.value)) {
+            checkbox.checked = true;
+        }
+    });
+});
 clearDataButton.addEventListener('click', () => {
     if (confirm('Are you sure you want to clear all scenarios? This will remove any saved data.')) {
         localStorage.removeItem(STORAGE_KEY);
