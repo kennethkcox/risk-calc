@@ -88,7 +88,7 @@ function loadScenarioForEdit(index) {
 }
 
 function calculateRisk(data, thresholds) {
-    const NUM_TRIALS = 500; // Reduced for performance
+    const NUM_TRIALS = 100; // Reduced for performance. TODO: Move to a web worker.
     const PERT_GAMMA = 4;
 
     const valueKeys = Object.keys(inputs).filter(k => k !== 'scenario');
@@ -609,7 +609,7 @@ function renderControlLibrary() {
         fieldset.appendChild(legend);
 
         const grid = document.createElement('div');
-        grid.className = 'grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4';
+        grid.className = 'control-grid';
 
         controlsByCategory[category].forEach(control => {
             const state = getControlState(control.id);
