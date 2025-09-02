@@ -11,10 +11,6 @@ const inputs = {
     conf_impact: document.getElementById('conf_impact'),
     integ_impact: document.getElementById('integ_impact'),
     avail_impact: document.getElementById('avail_impact'),
-    freq_controls: document.getElementById('freq_controls'),
-    c_mit: document.getElementById('c_mit'),
-    i_mit: document.getElementById('i_mit'),
-    a_mit: document.getElementById('a_mit'),
     min_loss: document.getElementById('min_loss'),
     likely_loss: document.getElementById('likely_loss'),
     max_loss: document.getElementById('max_loss'),
@@ -54,7 +50,6 @@ const modalTitle = document.getElementById('modal-title');
 
 function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(riskScenarios));
-    updateClearButtonVisibility();
 }
 
 function initializeScenarios() {
@@ -63,16 +58,6 @@ function initializeScenarios() {
         riskScenarios = JSON.parse(savedScenarios);
     } else {
         riskScenarios = [...exampleData];
-    }
-    updateClearButtonVisibility();
-}
-
-function updateClearButtonVisibility() {
-    const savedScenarios = localStorage.getItem(STORAGE_KEY);
-    if (savedScenarios) {
-        clearDataButton.classList.remove('hidden');
-    } else {
-        clearDataButton.classList.add('hidden');
     }
 }
 
@@ -91,6 +76,8 @@ function loadScenarioForEdit(index) {
     addButton.textContent = 'Update Scenario';
     cancelButton.classList.remove('hidden');
 
+    renderApplicableControls(scenarioData.applicableControls || []);
+
     // Also update the live preview
     const thresholds = {
         medium: parseFloat(thresholdInputs.medium.value) || 0,
@@ -101,7 +88,7 @@ function loadScenarioForEdit(index) {
 }
 
 function calculateRisk(data, thresholds) {
-    const NUM_TRIALS = 10000;
+    const NUM_TRIALS = 500; // Reduced for performance
     const PERT_GAMMA = 4;
 
     const valueKeys = Object.keys(inputs).filter(k => k !== 'scenario');
@@ -112,7 +99,7 @@ function calculateRisk(data, thresholds) {
         return null;
     }
 
-    const [confImpact, integImpact, availImpact, freqControls, cMit, iMit, aMit, minLoss, likelyLoss, maxLoss, minFreq, likelyFreq, maxFreq] = parsedVals;
+    const [confImpact, integImpact, availImpact, minLoss, likelyLoss, maxLoss, minFreq, likelyFreq, maxFreq] = parsedVals;
 
     if (minLoss > likelyLoss || likelyLoss > maxLoss || minFreq > likelyFreq || likelyFreq > maxFreq) {
         showError("Min values cannot be greater than Likely or Max values.");
@@ -123,14 +110,26 @@ function calculateRisk(data, thresholds) {
     }
     hideError();
 
-    const totalCiaImpact = confImpact + integImpact + availImpact;
-    let weightedMagControlEffectiveness = 3;
-    if (totalCiaImpact > 0) {
-        weightedMagControlEffectiveness = ((cMit * confImpact) + (iMit * integImpact) + (aMit * availImpact)) / totalCiaImpact;
+    let combinedModifier = 1.0;
+    if (data.applicableControls && data.applicableControls.length > 0) {
+        const controlEffectivenessValues = data.applicableControls.map(id => {
+            const state = getControlState(id);
+            // Only consider controls that are marked as implemented
+            return state.implemented ? state.effectiveness : 0;
+        });
+
+        // Convert effectiveness (0-100) to individual risk reduction modifiers (1.0 - 0.0)
+        // and multiply them to get a combined modifier.
+        const controlModifiers = controlEffectivenessValues.map(eff => 1 - (eff / 100));
+        if (controlModifiers.length > 0) {
+            combinedModifier = controlModifiers.reduce((acc, val) => acc * val, 1.0);
+        }
     }
 
-    const magnitudeControlModifier = (6 - weightedMagControlEffectiveness) / 5;
-    const frequencyControlModifier = (6 - freqControls) / 5;
+    // For now, we'll apply the same modifier to both magnitude and frequency.
+    // A future enhancement could be to classify controls.
+    const magnitudeControlModifier = combinedModifier;
+    const frequencyControlModifier = combinedModifier;
 
     // Helper for PERT sampling using Normal Approximation
     const getPertSample = (min, mostLikely, max) => {
@@ -311,8 +310,44 @@ function updateRiskLevelSummary(thresholds) {
     `;
 }
 
+function renderApplicableControls(selectedControlIds = []) {
+    const container = document.getElementById('applicable-controls-container');
+    const implementedControls = getImplementedControls();
+    container.innerHTML = '';
+
+    if (implementedControls.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 text-sm">No controls implemented yet. Go to the Control Library to add some.</p>';
+        return;
+    }
+
+    implementedControls.forEach(controlId => {
+        const control = ISO_27001_CONTROLS.find(c => c.id === controlId);
+        if (!control) return;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'flex items-center';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `applicable-${control.id}`;
+        checkbox.value = control.id;
+        checkbox.checked = selectedControlIds.includes(control.id);
+        checkbox.className = 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600';
+
+        const label = document.createElement('label');
+        label.htmlFor = `applicable-${control.id}`;
+        label.className = 'ml-2 text-sm text-gray-600';
+        label.textContent = control.id;
+
+        wrapper.appendChild(checkbox);
+        wrapper.appendChild(label);
+        container.appendChild(wrapper);
+    });
+}
+
 function resetForm() {
     Object.values(inputs).forEach(input => { if(input.type !== 'button') input.value = ''; });
+    renderApplicableControls(); // Clear and render the controls list
     editIndex = null;
     addButton.textContent = 'Add Risk Scenario';
     cancelButton.classList.add('hidden');
@@ -335,6 +370,11 @@ function saveRiskFromForm() {
          showError("Please enter a scenario description.");
          return;
     }
+
+    const selectedControls = [];
+    const controlCheckboxes = document.querySelectorAll('#applicable-controls-container input[type="checkbox"]:checked');
+    controlCheckboxes.forEach(cb => selectedControls.push(cb.value));
+    currentValues.applicableControls = selectedControls;
 
     if (editIndex !== null) {
         // Update existing scenario
@@ -515,9 +555,9 @@ cancelButton.addEventListener('click', resetForm);
 addButton.addEventListener('click', saveRiskFromForm);
 modalCloseButton.addEventListener('click', closeDetailsModal);
 clearDataButton.addEventListener('click', () => {
-    if (confirm('Are you sure you want to clear all saved scenarios and reset to the examples?')) {
+    if (confirm('Are you sure you want to clear all scenarios? This will remove any saved data.')) {
         localStorage.removeItem(STORAGE_KEY);
-        initializeScenarios();
+        riskScenarios = []; // Clear the array
         renderApp();
     }
 });
@@ -547,7 +587,110 @@ tableBody.addEventListener('click', (event) => {
     }
 });
 
+function renderControlLibrary() {
+    const container = document.getElementById('control-library-container');
+    container.innerHTML = ''; // Clear existing content
+
+    const controlsByCategory = ISO_27001_CONTROLS.reduce((acc, control) => {
+        if (!acc[control.category]) {
+            acc[control.category] = [];
+        }
+        acc[control.category].push(control);
+        return acc;
+    }, {});
+
+    for (const category in controlsByCategory) {
+        const fieldset = document.createElement('fieldset');
+        fieldset.className = 'p-4 border rounded-lg';
+
+        const legend = document.createElement('legend');
+        legend.className = 'px-2 font-bold text-lg';
+        legend.textContent = `${category} Controls`;
+        fieldset.appendChild(legend);
+
+        const grid = document.createElement('div');
+        grid.className = 'grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4';
+
+        controlsByCategory[category].forEach(control => {
+            const state = getControlState(control.id);
+
+            const controlWrapper = document.createElement('div');
+            controlWrapper.className = 'flex items-center justify-between';
+
+            const leftSide = document.createElement('div');
+            leftSide.className = 'flex items-center';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = `control-${control.id}`;
+            checkbox.checked = state.implemented;
+            checkbox.className = 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600';
+
+            const label = document.createElement('label');
+            label.htmlFor = `control-${control.id}`;
+            label.className = 'ml-3 text-sm text-gray-700';
+            label.innerHTML = `<span class="font-semibold">${control.id}</span>: ${control.name}`;
+
+            leftSide.appendChild(checkbox);
+            leftSide.appendChild(label);
+
+            const rightSide = document.createElement('div');
+            rightSide.className = 'flex items-center space-x-2';
+
+            const slider = document.createElement('input');
+            slider.type = 'range';
+            slider.dataset.testid = `slider-${control.id}`;
+            slider.min = 0;
+            slider.max = 100;
+            slider.step = 5;
+            slider.value = state.effectiveness;
+            slider.disabled = !state.implemented;
+            slider.className = 'w-24 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer';
+
+            const percentage = document.createElement('span');
+            percentage.className = 'text-sm font-mono text-gray-600 w-12 text-right';
+            percentage.textContent = `${state.effectiveness}%`;
+
+            if (!state.implemented) {
+                slider.classList.add('opacity-50');
+                percentage.classList.add('opacity-50');
+            }
+
+            checkbox.addEventListener('change', (e) => {
+                const implemented = e.target.checked;
+                slider.disabled = !implemented;
+                if (!implemented) {
+                    slider.classList.add('opacity-50');
+                    percentage.classList.add('opacity-50');
+                } else {
+                    slider.classList.remove('opacity-50');
+                    percentage.classList.remove('opacity-50');
+                }
+                updateControlState(control.id, implemented, parseInt(slider.value));
+            });
+
+            slider.addEventListener('input', (e) => {
+                const effectiveness = parseInt(e.target.value);
+                percentage.textContent = `${effectiveness}%`;
+                updateControlState(control.id, checkbox.checked, effectiveness);
+            });
+
+            rightSide.appendChild(slider);
+            rightSide.appendChild(percentage);
+
+            controlWrapper.appendChild(leftSide);
+            controlWrapper.appendChild(rightSide);
+            grid.appendChild(controlWrapper);
+        });
+
+        fieldset.appendChild(grid);
+        container.appendChild(fieldset);
+    }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
     initializeScenarios();
+    initializeControls(); // New
     renderApp();
+    renderControlLibrary(); // New
 });
