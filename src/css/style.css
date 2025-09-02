@@ -17,3 +17,15 @@ legend {
     font-weight: 600;
     color: #1f2937;
 }
+
+.control-grid {
+    display: grid;
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+    gap: 1rem 2rem;
+}
+
+@media (min-width: 768px) {
+    .control-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
