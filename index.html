@@ -32,7 +32,7 @@
                 <svg id="guide-toggle-icon" class="toggle-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
             </div>
             <div id="guide-content">
-                 <div class="grid gap-6" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
+                 <div class="grid gap-6 grid-auto-fit-250">
                      <div>
                          <h3 class="font-semibold">Financials & Frequency</h3>
                          <p class="text-gray-500 mt-1">Model uncertainty using a <b>PERT distribution (Min, Most Likely, Max)</b> for both financial loss and event frequency to produce a realistic, weighted average.</p>
@@ -48,7 +48,7 @@
                     <div class="col-span-full">
                         <fieldset>
                             <legend>Customize Risk Level Thresholds</legend>
-                            <div class="grid gap-4 mt-2" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                            <div class="grid gap-4 mt-2 grid-auto-fit-150">
                                 <div>
                                     <label for="medium_threshold" class="block mb-1 text-sm">Medium starts at ($)</label>
                                     <input type="number" id="medium_threshold" min="0" class="table-cell-input" value="10000">
@@ -201,7 +201,7 @@
                                 <legend>Applicable ISO 27001 Controls</legend>
                                 <button id="suggest-controls-btn" class="btn btn-secondary">Suggest Controls</button>
                             </div>
-                            <div id="applicable-controls-container" class="grid gap-4 mt-2" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); max-height: 12rem; overflow-y: auto;">
+                            <div id="applicable-controls-container" class="grid gap-4 mt-2 grid-auto-fit-200 max-h-48 overflow-y-auto">
                                 <!-- Dynamically populated list of implemented controls -->
                                 <p class="text-gray-500 text-sm">No controls implemented yet. Go to the Control Library to add some.</p>
                             </div>
