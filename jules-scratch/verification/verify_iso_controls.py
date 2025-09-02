@@ -40,9 +40,13 @@ async def main():
         await page.get_by_label("Min Events / Year").fill("0.5")
         await page.get_by_label("Most Likely Events / Year").fill("1")
         await page.get_by_label("Max Events / Year").fill("2")
+        await page.get_by_label("Confidentiality Impact (1-3)").fill("1")
+        await page.get_by_label("Integrity Impact (1-3)").fill("2")
+        await page.get_by_label("Availability Impact (1-3)").fill("3")
         await page.get_by_role("button", name="Add Risk Scenario").click()
 
         # 4. Get the ALE for the first scenario.
+        await expect(page.locator("#risk-table-body tr")).to_have_count(1)
         row1 = page.locator("#risk-table-body tr").first
         ale1 = await get_ale_from_row(row1)
         print(f"ALE for scenario 1 (no controls): {ale1}")
@@ -55,6 +59,9 @@ async def main():
         await page.get_by_label("Min Events / Year").fill("0.5")
         await page.get_by_label("Most Likely Events / Year").fill("1")
         await page.get_by_label("Max Events / Year").fill("2")
+        await page.get_by_label("Confidentiality Impact (1-3)").fill("1")
+        await page.get_by_label("Integrity Impact (1-3)").fill("2")
+        await page.get_by_label("Availability Impact (1-3)").fill("3")
 
         # Select the control we enabled
         await page.locator("#applicable-A\\.5\\.1").check()

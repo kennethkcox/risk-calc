@@ -667,12 +667,19 @@ function renderControlLibrary() {
                     percentage.classList.remove('opacity-50');
                 }
                 updateControlState(control.id, implemented, parseInt(slider.value));
+                renderApp();
+                // We also need to refresh the list of applicable controls in the form
+                const selectedControls = (editIndex !== null && riskScenarios[editIndex].applicableControls)
+                    ? riskScenarios[editIndex].applicableControls
+                    : [];
+                renderApplicableControls(selectedControls);
             });
 
             slider.addEventListener('input', (e) => {
                 const effectiveness = parseInt(e.target.value);
                 percentage.textContent = `${effectiveness}%`;
                 updateControlState(control.id, checkbox.checked, effectiveness);
+                renderApp();
             });
 
             rightSide.appendChild(slider);
