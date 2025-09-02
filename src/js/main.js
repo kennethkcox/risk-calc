@@ -43,9 +43,14 @@ const exampleData = [
 ];
 
 let riskScenarios = [];
+let calculatedScenarios = [];
 let editIndex = null;
 let riskChart = null;
+let histogramChart = null;
 const chartContainer = document.getElementById('chart-container');
+const detailsModal = document.getElementById('details-modal');
+const modalCloseButton = document.getElementById('modal-close-btn');
+const modalTitle = document.getElementById('modal-title');
 
 function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(riskScenarios));
@@ -96,6 +101,9 @@ function loadScenarioForEdit(index) {
 }
 
 function calculateRisk(data, thresholds) {
+    const NUM_TRIALS = 10000;
+    const PERT_GAMMA = 4;
+
     const valueKeys = Object.keys(inputs).filter(k => k !== 'scenario');
     const allValues = valueKeys.map(key => data[key]);
     const parsedVals = allValues.map(v => parseFloat(v));
@@ -104,43 +112,65 @@ function calculateRisk(data, thresholds) {
         return null;
     }
 
-    // Re-map parsedVals based on the new `inputs` object order for clarity
     const [confImpact, integImpact, availImpact, freqControls, cMit, iMit, aMit, minLoss, likelyLoss, maxLoss, minFreq, likelyFreq, maxFreq] = parsedVals;
 
-
     if (minLoss > likelyLoss || likelyLoss > maxLoss || minFreq > likelyFreq || likelyFreq > maxFreq) {
-         showError("Min values cannot be greater than Likely or Max values.");
-         return null;
+        showError("Min values cannot be greater than Likely or Max values.");
+        return null;
     } else if (thresholds.medium >= thresholds.high || thresholds.high >= thresholds.critical) {
-         showError("Risk level thresholds must be in increasing order.");
-         return null;
+        showError("Risk level thresholds must be in increasing order.");
+        return null;
     }
-     hideError();
-
-    const inherentSLE = (minLoss + 4 * likelyLoss + maxLoss) / 6;
-    const inherentARO = (minFreq + 4 * likelyFreq + maxFreq) / 6;
+    hideError();
 
     const totalCiaImpact = confImpact + integImpact + availImpact;
     let weightedMagControlEffectiveness = 3;
     if (totalCiaImpact > 0) {
-         weightedMagControlEffectiveness = ((cMit * confImpact) + (iMit * integImpact) + (aMit * availImpact)) / totalCiaImpact;
+        weightedMagControlEffectiveness = ((cMit * confImpact) + (iMit * integImpact) + (aMit * availImpact)) / totalCiaImpact;
     }
 
     const magnitudeControlModifier = (6 - weightedMagControlEffectiveness) / 5;
     const frequencyControlModifier = (6 - freqControls) / 5;
 
-    const residualSLE = inherentSLE * magnitudeControlModifier;
-    const residualARO = inherentARO * frequencyControlModifier;
-    const finalALE = residualSLE * residualARO;
+    // Helper for PERT sampling using Normal Approximation
+    const getPertSample = (min, mostLikely, max) => {
+        if (max === min) return min;
+        const meanVal = (min + PERT_GAMMA * mostLikely + max) / (PERT_GAMMA + 2);
+        const stdDev = (max - min) / (PERT_GAMMA + 2);
+        let sample = meanVal + stdDev * random_normal();
+        return Math.max(min, Math.min(sample, max)); // Clamp to bounds
+    };
+
+    const simulatedAles = [];
+    const simulatedSles = [];
+    const simulatedAros = [];
+
+    for (let i = 0; i < NUM_TRIALS; i++) {
+        const inherentSLE = getPertSample(minLoss, likelyLoss, maxLoss);
+        const inherentARO = getPertSample(minFreq, likelyFreq, maxFreq);
+
+        const residualSLE = inherentSLE * magnitudeControlModifier;
+        const residualARO = inherentARO * frequencyControlModifier;
+        const finalALE = residualSLE * residualARO;
+
+        simulatedSles.push(residualSLE);
+        simulatedAros.push(residualARO);
+        simulatedAles.push(finalALE);
+    }
+
+    const meanALE = mean(simulatedAles);
+    const p90ALE = quantile(simulatedAles, 0.9);
+    const meanSLE = mean(simulatedSles);
+    const meanARO = mean(simulatedAros);
 
     let riskLevel, riskColorClass;
-    if (finalALE >= thresholds.critical) {
+    if (meanALE >= thresholds.critical) {
         riskLevel = "Critical";
         riskColorClass = "bg-red-600 text-white";
-    } else if (finalALE >= thresholds.high) {
+    } else if (meanALE >= thresholds.high) {
         riskLevel = "High";
         riskColorClass = "bg-orange-500 text-white";
-    } else if (finalALE >= thresholds.medium) {
+    } else if (meanALE >= thresholds.medium) {
         riskLevel = "Medium";
         riskColorClass = "bg-yellow-400 text-black";
     } else {
@@ -148,7 +178,7 @@ function calculateRisk(data, thresholds) {
         riskColorClass = "bg-green-500 text-white";
     }
 
-    return { ...data, residualSLE, residualARO, finalALE, riskLevel, riskColorClass };
+    return { ...data, meanSLE, meanARO, meanALE, p90ALE, riskLevel, riskColorClass, rawAles: simulatedAles };
 }
 
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -158,12 +188,14 @@ function renderRow(calculatedData, index) {
     newRow.className = 'bg-white border-b';
     newRow.innerHTML = `
         <td class="px-4 py-3 font-medium text-gray-900">${escapeHTML(calculatedData.scenario)}</td>
-        <td class="px-4 py-3 text-center font-mono">${currencyFormatter.format(calculatedData.residualSLE)}</td>
-        <td class="px-4 py-3 text-center font-mono">${calculatedData.residualARO.toFixed(2)}</td>
-        <td class="px-4 py-3 text-center font-mono">${currencyFormatter.format(calculatedData.finalALE)}</td>
+        <td class="px-4 py-3 text-center font-mono">${currencyFormatter.format(calculatedData.meanSLE)}</td>
+        <td class="px-4 py-3 text-center font-mono">${calculatedData.meanARO.toFixed(2)}</td>
+        <td class="px-4 py-3 text-center font-mono">${currencyFormatter.format(calculatedData.meanALE)}</td>
+        <td class="px-4 py-3 text-center font-mono">${currencyFormatter.format(calculatedData.p90ALE)}</td>
         <td class="px-4 py-3 text-center font-bold ${calculatedData.riskColorClass}">${calculatedData.riskLevel}</td>
         <td class="px-4 py-3 text-center">
-            <button class="edit-btn text-blue-600 hover:underline" data-index="${index}">Edit</button>
+            <button class="edit-btn text-blue-600 hover:underline mr-2" data-index="${index}">Edit</button>
+            <button class="details-btn text-green-600 hover:underline" data-index="${index}">Details</button>
         </td>
     `;
 }
@@ -186,7 +218,7 @@ function renderRiskChart(calculatedScenarios) {
 
     const ctx = riskChartCanvas.getContext('2d');
     const labels = calculatedScenarios.map(s => s.scenario);
-    const data = calculatedScenarios.map(s => s.finalALE);
+    const data = calculatedScenarios.map(s => s.meanALE);
     const backgroundColors = calculatedScenarios.map(s => {
         if (s.riskLevel === 'Critical') return 'rgba(220, 38, 38, 0.7)';
         if (s.riskLevel === 'High') return 'rgba(249, 115, 22, 0.7)';
@@ -255,9 +287,9 @@ function updateLivePreview(thresholds) {
     const calculatedData = calculateRisk(currentValues, thresholds);
 
     if (calculatedData) {
-        previewElements.sle.textContent = currencyFormatter.format(calculatedData.residualSLE);
-        previewElements.aro.textContent = calculatedData.residualARO.toFixed(2);
-        previewElements.ale.textContent = currencyFormatter.format(calculatedData.finalALE);
+        previewElements.sle.textContent = currencyFormatter.format(calculatedData.meanSLE);
+        previewElements.aro.textContent = calculatedData.meanARO.toFixed(2);
+        previewElements.ale.textContent = currencyFormatter.format(calculatedData.meanALE);
         previewElements.level.textContent = calculatedData.riskLevel;
         previewElements.level.className = `mt-1 text-lg font-bold p-2 rounded-md ${calculatedData.riskColorClass}`;
     } else {
@@ -327,7 +359,7 @@ function renderApp() {
     updateRiskLevelSummary(thresholds);
     tableBody.innerHTML = ''; // Clear table
 
-    const calculatedScenarios = [];
+    calculatedScenarios = []; // Reset the global array
     let hasError = false;
     riskScenarios.forEach((data, index) => {
         const calculated = calculateRisk(data, thresholds);
@@ -360,8 +392,128 @@ function escapeHTML(str) {
     return p.innerHTML;
 }
 
+function openDetailsModal(index) {
+    const scenario = calculatedScenarios[index];
+    if (!scenario) return;
+
+    detailsModal.classList.remove('hidden');
+    modalTitle.textContent = `ALE Distribution: ${escapeHTML(scenario.scenario)}`;
+
+    renderHistogram(scenario.rawAles);
+}
+
+function closeDetailsModal() {
+    detailsModal.classList.add('hidden');
+    if (histogramChart) {
+        histogramChart.destroy();
+        histogramChart = null;
+    }
+}
+
+function renderHistogram(ales) {
+    const ctx = document.getElementById('histogram-chart').getContext('2d');
+
+    // Simple binning logic
+    const min = Math.min(...ales);
+    const max = Math.max(...ales);
+    const numBins = 30;
+    const binWidth = (max - min) / numBins;
+    const bins = Array(numBins).fill(0);
+    const labels = [];
+
+    for (let i = 0; i < numBins; i++) {
+        const binStart = min + i * binWidth;
+        const binEnd = binStart + binWidth;
+        labels.push(`${currencyFormatter.format(binStart)}`);
+    }
+
+    ales.forEach(ale => {
+        if (ale < min || ale > max) return; // Should not happen
+        let binIndex = Math.floor((ale - min) / binWidth);
+        if (binIndex === numBins) binIndex--; // Put max value in last bin
+        bins[binIndex]++;
+    });
+
+    if (histogramChart) {
+        histogramChart.destroy();
+    }
+
+    histogramChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Frequency',
+                data: bins,
+                backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1,
+                barPercentage: 1,
+                categoryPercentage: 1,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Number of Simulated Years (Frequency)' }
+                },
+                x: {
+                    title: { display: true, text: 'Annualized Loss Expectancy (ALE) Bins' }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                     callbacks: {
+                        title: function(context) {
+                            const index = context[0].dataIndex;
+                            const binStart = min + index * binWidth;
+                            const binEnd = binStart + binWidth;
+                             return `ALE: ${currencyFormatter.format(binStart)} - ${currencyFormatter.format(binEnd)}`;
+                        },
+                        label: function(context) {
+                            return `Frequency: ${context.parsed.y}`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function random_normal() {
+    let u = 0, v = 0;
+    while(u === 0) u = Math.random();
+    while(v === 0) v = Math.random();
+    return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+}
+
+function mean(arr) {
+    if (arr.length === 0) return 0;
+    return arr.reduce((a, b) => a + b, 0) / arr.length;
+}
+
+function quantile(arr, q) {
+    if (arr.length === 0) return 0;
+    const sorted = arr.slice().sort((a, b) => a - b);
+    const pos = (sorted.length - 1) * q;
+    const base = Math.floor(pos);
+    const rest = pos - base;
+    if (sorted[base + 1] !== undefined) {
+        return sorted[base] + rest * (sorted[base + 1] - sorted[base]);
+    } else {
+        return sorted[base];
+    }
+}
+
 cancelButton.addEventListener('click', resetForm);
 addButton.addEventListener('click', saveRiskFromForm);
+modalCloseButton.addEventListener('click', closeDetailsModal);
 clearDataButton.addEventListener('click', () => {
     if (confirm('Are you sure you want to clear all saved scenarios and reset to the examples?')) {
         localStorage.removeItem(STORAGE_KEY);
@@ -388,6 +540,10 @@ tableBody.addEventListener('click', (event) => {
     if (event.target.classList.contains('edit-btn')) {
         const index = event.target.getAttribute('data-index');
         loadScenarioForEdit(parseInt(index, 10));
+    }
+    if (event.target.classList.contains('details-btn')) {
+        const index = event.target.getAttribute('data-index');
+        openDetailsModal(parseInt(index, 10));
     }
 });
 
