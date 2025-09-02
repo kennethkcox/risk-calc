@@ -140,6 +140,39 @@ function renderRow(calculatedData, index) {
     `;
 }
 
+function getChartJsThemeOptions() {
+    const isDarkMode = document.documentElement.dataset.theme === 'dark';
+    const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+    const textColor = isDarkMode ? '#f3f4f6' : '#1f2937';
+
+    return {
+        scales: {
+            x: {
+                ticks: { color: textColor },
+                grid: { color: gridColor },
+                title: { color: textColor }
+            },
+            y: {
+                ticks: { color: textColor },
+                grid: { color: gridColor },
+                title: { color: textColor }
+            }
+        },
+        plugins: {
+            legend: {
+                labels: { color: textColor }
+            },
+            tooltip: {
+                titleColor: textColor,
+                bodyColor: textColor,
+                backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
+                borderColor: gridColor
+            }
+        }
+    };
+}
+
+
 function renderRiskChart(calculatedScenarios) {
     const riskChartCanvas = document.getElementById('risk-chart');
     const chartPlaceholder = document.getElementById('chart-placeholder');
@@ -166,15 +199,58 @@ function renderRiskChart(calculatedScenarios) {
     const labels = calculatedScenarios.map(s => s.scenario);
     const data = calculatedScenarios.map(s => s.meanALE);
     const backgroundColors = calculatedScenarios.map(s => {
-        if (s.riskLevel === 'Critical') return 'rgba(220, 38, 38, 0.7)';
-        if (s.riskLevel === 'High') return 'rgba(249, 115, 22, 0.7)';
-        if (s.riskLevel === 'Medium') return 'rgba(250, 204, 21, 0.7)';
-        return 'rgba(34, 197, 94, 0.7)';
+        if (s.riskLevel === 'Critical') return 'rgba(239, 68, 68, 0.7)'; // red-500
+        if (s.riskLevel === 'High') return 'rgba(249, 115, 22, 0.7)'; // orange-500
+        if (s.riskLevel === 'Medium') return 'rgba(250, 204, 21, 0.7)'; // yellow-400
+        return 'rgba(34, 197, 94, 0.7)'; // green-500
     });
 
     if (riskChart) {
         riskChart.destroy();
     }
+
+    const themeOptions = getChartJsThemeOptions();
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y',
+        scales: {
+            x: {
+                beginAtZero: true,
+                ticks: {
+                    ...themeOptions.scales.x.ticks,
+                    callback: function(value) {
+                        return currencyFormatter.format(value);
+                    }
+                },
+                grid: themeOptions.scales.x.grid
+            },
+            y: {
+                ticks: themeOptions.scales.y.ticks,
+                grid: themeOptions.scales.y.grid
+            }
+        },
+        plugins: {
+            legend: {
+                display: false
+            },
+            tooltip: {
+                ...themeOptions.plugins.tooltip,
+                callbacks: {
+                    label: function(context) {
+                        let label = context.dataset.label || '';
+                        if (label) {
+                            label += ': ';
+                        }
+                        if (context.parsed.x !== null) {
+                            label += currencyFormatter.format(context.parsed.x);
+                        }
+                        return label;
+                    }
+                }
+            }
+        }
+    };
 
     riskChart = new Chart(ctx, {
         type: 'bar',
@@ -188,40 +264,7 @@ function renderRiskChart(calculatedScenarios) {
                 borderWidth: 1
             }]
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            indexAxis: 'y',
-            scales: {
-                x: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function(value, index, values) {
-                            return currencyFormatter.format(value);
-                        }
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
-                            }
-                            if (context.parsed.x !== null) {
-                                label += currencyFormatter.format(context.parsed.x);
-                            }
-                            return label;
-                        }
-                    }
-                }
-            }
-        }
+        options: chartOptions
     });
 }
 
@@ -513,6 +556,7 @@ function openDetailsModal(index) {
     const scenario = calculatedScenarios[index];
     if (!scenario) return;
 
+    detailsModal.dataset.scenarioIndex = index; // Store the index
     detailsModal.classList.remove('hidden');
     modalTitle.textContent = `ALE Distribution: ${escapeHTML(scenario.scenario)}`;
 
@@ -540,7 +584,6 @@ function renderHistogram(ales) {
 
     for (let i = 0; i < numBins; i++) {
         const binStart = min + i * binWidth;
-        const binEnd = binStart + binWidth;
         labels.push(`${currencyFormatter.format(binStart)}`);
     }
 
@@ -555,6 +598,42 @@ function renderHistogram(ales) {
         histogramChart.destroy();
     }
 
+    const themeOptions = getChartJsThemeOptions();
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                ...themeOptions.scales.y,
+                beginAtZero: true,
+                title: { ...themeOptions.scales.y.title, display: true, text: 'Number of Simulated Years (Frequency)' }
+            },
+            x: {
+                ...themeOptions.scales.x,
+                title: { ...themeOptions.scales.x.title, display: true, text: 'Annualized Loss Expectancy (ALE) Bins' }
+            }
+        },
+        plugins: {
+            legend: {
+                display: false
+            },
+            tooltip: {
+                ...themeOptions.plugins.tooltip,
+                 callbacks: {
+                    title: function(context) {
+                        const index = context[0].dataIndex;
+                        const binStart = min + index * binWidth;
+                        const binEnd = binStart + binWidth;
+                         return `ALE: ${currencyFormatter.format(binStart)} - ${currencyFormatter.format(binEnd)}`;
+                    },
+                    label: function(context) {
+                        return `Frequency: ${context.parsed.y}`;
+                    }
+                }
+            }
+        }
+    };
+
     histogramChart = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -562,44 +641,14 @@ function renderHistogram(ales) {
             datasets: [{
                 label: 'Frequency',
                 data: bins,
-                backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                borderColor: 'rgba(54, 162, 235, 1)',
+                backgroundColor: 'rgba(59, 130, 246, 0.7)', // blue-500
+                borderColor: 'rgba(59, 130, 246, 1)',
                 borderWidth: 1,
                 barPercentage: 1,
                 categoryPercentage: 1,
             }]
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    title: { display: true, text: 'Number of Simulated Years (Frequency)' }
-                },
-                x: {
-                    title: { display: true, text: 'Annualized Loss Expectancy (ALE) Bins' }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                     callbacks: {
-                        title: function(context) {
-                            const index = context[0].dataIndex;
-                            const binStart = min + index * binWidth;
-                            const binEnd = binStart + binWidth;
-                             return `ALE: ${currencyFormatter.format(binStart)} - ${currencyFormatter.format(binEnd)}`;
-                        },
-                        label: function(context) {
-                            return `Frequency: ${context.parsed.y}`;
-                        }
-                    }
-                }
-            }
-        }
+        options: chartOptions
     });
 }
 
@@ -975,6 +1024,16 @@ window.addEventListener('DOMContentLoaded', () => {
             const newTheme = input.checked ? 'dark' : 'light';
             localStorage.setItem(THEME_STORAGE_KEY, newTheme);
             applyTheme(newTheme);
+            // Re-render the main app to update chart colors
+            renderApp();
+
+            // If the details modal is open, re-render the histogram
+            if (!detailsModal.classList.contains('hidden')) {
+                const scenarioIndex = detailsModal.dataset.scenarioIndex;
+                if (scenarioIndex !== undefined && calculatedScenarios[scenarioIndex]) {
+                    renderHistogram(calculatedScenarios[scenarioIndex].rawAles);
+                }
+            }
         });
 
         themeSwitcherContainer.appendChild(label);
