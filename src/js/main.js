@@ -108,6 +108,7 @@ function loadScenarioForEdit(index) {
     cancelButton.classList.remove('hidden');
 
     renderApplicableControls(scenarioData.applicableControls || []);
+    renderApplicableThreats(scenarioData.applicableThreats || []);
 
     // Also update the live preview
     const thresholds = {
@@ -225,6 +226,39 @@ function renderRiskChart(calculatedScenarios) {
     });
 }
 
+function renderApplicableThreats(selectedThreatIds = []) {
+    const container = document.getElementById('applicable-threats-container');
+    container.innerHTML = '';
+
+    const allThreats = Object.values(THREAT_FRAMEWORKS).flat();
+
+    if (allThreats.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 text-sm">No threats found in the library.</p>';
+        return;
+    }
+
+    allThreats.forEach(threat => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'flex items-center';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `applicable-${threat.id}`;
+        checkbox.value = threat.id;
+        checkbox.checked = selectedThreatIds.includes(threat.id);
+        checkbox.className = 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600';
+
+        const label = document.createElement('label');
+        label.htmlFor = `applicable-${threat.id}`;
+        label.className = 'ml-2 text-sm text-gray-600';
+        label.textContent = `${threat.id}: ${threat.name}`;
+
+        wrapper.appendChild(checkbox);
+        wrapper.appendChild(label);
+        container.appendChild(wrapper);
+    });
+}
+
 function updateLivePreview(thresholds) {
     if (!livePreviewWorker) {
         console.error("Live preview worker not initialized.");
@@ -240,6 +274,11 @@ function updateLivePreview(thresholds) {
     const controlCheckboxes = document.querySelectorAll('#applicable-controls-container input[type="checkbox"]:checked');
     controlCheckboxes.forEach(cb => selectedControls.push(cb.value));
     currentValues.applicableControls = selectedControls;
+
+    const selectedThreats = [];
+    const threatCheckboxes = document.querySelectorAll('#applicable-threats-container input[type="checkbox"]:checked');
+    threatCheckboxes.forEach(cb => selectedThreats.push(cb.value));
+    currentValues.applicableThreats = selectedThreats;
 
     // Show loading state
     previewElements.sle.textContent = '...';
@@ -303,6 +342,7 @@ function renderApplicableControls(selectedControlIds = []) {
 function resetForm() {
     Object.values(inputs).forEach(input => { if(input.type !== 'button') input.value = ''; });
     renderApplicableControls(); // Clear and render the controls list
+    renderApplicableThreats();
     editIndex = null;
     addButton.textContent = 'Add Risk Scenario';
     cancelButton.classList.add('hidden');
@@ -330,6 +370,11 @@ function saveRiskFromForm() {
     const controlCheckboxes = document.querySelectorAll('#applicable-controls-container input[type="checkbox"]:checked');
     controlCheckboxes.forEach(cb => selectedControls.push(cb.value));
     currentValues.applicableControls = selectedControls;
+
+    const selectedThreats = [];
+    const threatCheckboxes = document.querySelectorAll('#applicable-threats-container input[type="checkbox"]:checked');
+    threatCheckboxes.forEach(cb => selectedThreats.push(cb.value));
+    currentValues.applicableThreats = selectedThreats;
 
     if (editIndex !== null) {
         // Update existing scenario
@@ -685,6 +730,59 @@ function handleControlFilterChange() {
 searchInput.addEventListener('input', handleControlFilterChange);
 categoryFilter.addEventListener('change', handleControlFilterChange);
 
+function renderThreatLibrary(searchTerm = '', frameworkFilter = 'STRIDE') {
+    const container = document.getElementById('threat-library-container');
+    container.innerHTML = ''; // Clear existing content
+
+    const threats = THREAT_FRAMEWORKS[frameworkFilter] || [];
+
+    const filteredThreats = threats.filter(threat => {
+        const matchesSearch = !searchTerm ||
+            threat.id.toLowerCase().includes(searchTerm) ||
+            threat.name.toLowerCase().includes(searchTerm) ||
+            threat.description.toLowerCase().includes(searchTerm);
+        return matchesSearch;
+    });
+
+    if (filteredThreats.length === 0) {
+        container.innerHTML = '<p class="text-center text-gray-500">No threats match the current filters.</p>';
+        return;
+    }
+
+    const grid = document.createElement('div');
+    grid.className = 'control-grid'; // Re-using class for layout
+
+    filteredThreats.forEach(threat => {
+        const threatWrapper = document.createElement('div');
+        threatWrapper.className = 'p-2 border-b';
+
+        const nameEl = document.createElement('p');
+        nameEl.innerHTML = `<span class="font-semibold">${threat.id}</span>: ${threat.name}`;
+
+        const descEl = document.createElement('p');
+        descEl.className = 'text-sm text-gray-600 ml-7';
+        descEl.textContent = threat.description;
+
+        threatWrapper.appendChild(nameEl);
+        threatWrapper.appendChild(descEl);
+        grid.appendChild(threatWrapper);
+    });
+
+    container.appendChild(grid);
+}
+
+const threatSearchInput = document.getElementById('threat-search-input');
+const threatFrameworkFilter = document.getElementById('threat-framework-filter');
+
+function handleThreatFilterChange() {
+    const searchTerm = threatSearchInput.value.toLowerCase();
+    const framework = threatFrameworkFilter.value;
+    renderThreatLibrary(searchTerm, framework);
+}
+
+threatSearchInput.addEventListener('input', handleThreatFilterChange);
+threatFrameworkFilter.addEventListener('change', handleThreatFilterChange);
+
 suggestButton.addEventListener('click', () => {
     const currentValues = {};
     for(const key in inputs) {
@@ -934,6 +1032,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // Setup all collapsible sections
     setupCollapsible('guide-header', 'guide-content', 'guide-toggle-icon');
     setupCollapsible('control-library-header', 'control-library-content', 'control-library-toggle-icon');
+    setupCollapsible('threat-library-header', 'threat-library-content', 'threat-library-toggle-icon');
     setupCollapsible('input-form-header', 'input-form-content', 'input-form-toggle-icon');
     setupCollapsible('risk-chart-header', 'risk-chart-content', 'risk-chart-toggle-icon');
     setupCollapsible('risk-table-header', 'risk-table-content', 'risk-table-toggle-icon');
@@ -1005,4 +1104,6 @@ window.addEventListener('DOMContentLoaded', () => {
     initializeLivePreviewWorker();
     renderApp();
     renderControlLibrary();
+    renderThreatLibrary();
+    renderApplicableThreats();
 });
