@@ -15,14 +15,14 @@ This is a sophisticated, browser-based tool for performing quantitative cyber ri
 *   **Customizable Risk Thresholds**: Define your own financial thresholds for Low, Medium, High, and Critical risk levels.
 *   **Clean, Responsive Interface**: Built with Tailwind CSS for a modern, easy-to-use experience on any device.
 
-## Project Philosophy: Simplicity and Portability
+## Enterprise-Grade Security
 
-This project is intentionally designed to be **buildless**. It runs directly in any modern web browser without requiring any installation, dependencies, or build steps. This is achieved by:
+This project is designed with security as a priority. While maintaining its simplicity and portability as a **buildless** application, it incorporates modern security features to protect against common web vulnerabilities.
 
-*   Using the **Tailwind CSS CDN**, which provides the full power of the framework without the need for a local build process.
-*   Writing clean, vanilla JavaScript that is well-organized and easy to understand.
+*   **Content Security Policy (CSP)**: The application uses a strict CSP to prevent a wide range of attacks, including Cross-Site Scripting (XSS). It does this by explicitly defining which sources of content (scripts, styles, fonts) are trusted and can be loaded by the browser.
+*   **Subresource Integrity (SRI)**: All third-party resources (like Tailwind CSS and Chart.js) are loaded with an integrity hash. This ensures that the files fetched from the Content Delivery Network (CDN) have not been tampered with or compromised. If the hash of the fetched file does not match the expected hash, the browser will refuse to load it.
 
-This approach makes the tool extremely portable, easy to deploy (just host the static files), and simple for anyone to inspect and modify, regardless of their development environment.
+This layered security approach makes the tool safer to use, especially in corporate environments.
 
 ## How to Use
 
