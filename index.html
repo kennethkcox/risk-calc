@@ -65,6 +65,42 @@
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <fieldset class="p-4">
+                        <legend class="px-2">Loss Magnitude (Financial Impact)</legend>
+                        <div class="grid grid-cols-1 gap-4">
+                            <div>
+                               <label for="min_loss" class="block mb-1 font-medium text-sm">Minimum Loss ($)</label>
+                               <input type="number" id="min_loss" min="0" class="table-cell-input" placeholder="50000">
+                           </div>
+                           <div>
+                               <label for="likely_loss" class="block mb-1 font-medium text-sm">Most Likely Loss ($)</label>
+                               <input type="number" id="likely_loss" min="0" class="table-cell-input" placeholder="150000">
+                           </div>
+                            <div>
+                               <label for="max_loss" class="block mb-1 font-medium text-sm">Maximum Loss ($)</label>
+                               <input type="number" id="max_loss" min="0" class="table-cell-input" placeholder="500000">
+                           </div>
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="p-4">
+                        <legend class="px-2">Loss Event Frequency</legend>
+                        <div class="grid grid-cols-1 gap-4">
+                           <div>
+                                <label for="min_freq" class="block mb-1 font--medium text-sm">Min Events / Year</label>
+                                <input type="number" id="min_freq" step="0.01" min="0" class="table-cell-input" placeholder="0.1 (once in 10 yrs)">
+                            </div>
+                            <div>
+                                <label for="likely_freq" class="block mb-1 font-medium text-sm">Most Likely Events / Year</label>
+                                <input type="number" id="likely_freq" step="0.01" min="0" class="table-cell-input" placeholder="0.5 (once in 2 yrs)">
+                            </div>
+                            <div>
+                                <label for="max_freq" class="block mb-1 font-medium text-sm">Max Events / Year</label>
+                                <input type="number" id="max_freq" step="0.01" min="0" class="table-cell-input" placeholder="2">
+                            </div>
+                        </div>
+                    </fieldset>
+
                     <fieldset class="md:col-span-2 p-4">
                         <legend class="px-2">Asset Impact Profile</legend>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -101,42 +137,6 @@
                              <div>
                                 <label for="a_mit" class="block mb-1 font-medium text-sm">Availability Mitigation (1-5)</label>
                                 <input type="number" id="a_mit" min="1" max="5" class="table-cell-input" placeholder="2">
-                            </div>
-                        </div>
-                    </fieldset>
-
-                    <fieldset class="p-4">
-                        <legend class="px-2">Loss Magnitude (Financial Impact)</legend>
-                        <div class="grid grid-cols-1 gap-4">
-                            <div>
-                               <label for="min_loss" class="block mb-1 font-medium text-sm">Minimum Loss ($)</label>
-                               <input type="number" id="min_loss" min="0" class="table-cell-input" placeholder="50000">
-                           </div>
-                           <div>
-                               <label for="likely_loss" class="block mb-1 font-medium text-sm">Most Likely Loss ($)</label>
-                               <input type="number" id="likely_loss" min="0" class="table-cell-input" placeholder="150000">
-                           </div>
-                            <div>
-                               <label for="max_loss" class="block mb-1 font-medium text-sm">Maximum Loss ($)</label>
-                               <input type="number" id="max_loss" min="0" class="table-cell-input" placeholder="500000">
-                           </div>
-                        </div>
-                    </fieldset>
-
-                    <fieldset class="p-4">
-                        <legend class="px-2">Loss Event Frequency</legend>
-                        <div class="grid grid-cols-1 gap-4">
-                           <div>
-                                <label for="min_freq" class="block mb-1 font--medium text-sm">Min Events / Year</label>
-                                <input type="number" id="min_freq" step="0.01" min="0" class="table-cell-input" placeholder="0.1 (once in 10 yrs)">
-                            </div>
-                            <div>
-                                <label for="likely_freq" class="block mb-1 font-medium text-sm">Most Likely Events / Year</label>
-                                <input type="number" id="likely_freq" step="0.01" min="0" class="table-cell-input" placeholder="0.5 (once in 2 yrs)">
-                            </div>
-                            <div>
-                                <label for="max_freq" class="block mb-1 font-medium text-sm">Max Events / Year</label>
-                                <input type="number" id="max_freq" step="0.01" min="0" class="table-cell-input" placeholder="2">
                             </div>
                         </div>
                     </fieldset>
