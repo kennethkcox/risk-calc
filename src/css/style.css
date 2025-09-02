@@ -29,3 +29,22 @@ legend {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
+
+#control-library-content {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: max-height 0.5s ease-in-out, opacity 0.5s ease-in-out;
+    padding-left: 1.5rem; /* px-6 */
+    padding-right: 1.5rem; /* px-6 */
+}
+
+#control-library-content.open {
+    max-height: 1500px; /* Adjust as needed, large enough to contain the content */
+    opacity: 1;
+    padding-bottom: 1.5rem; /* pb-6 */
+}
+
+#control-library-toggle-icon.open {
+    transform: rotate(180deg);
+}
