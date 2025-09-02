@@ -838,31 +838,26 @@ function renderControlLibrary(searchTerm = '', categoryFilter = '') {
     }
 }
 
+function setupCollapsible(headerId, contentId, iconId) {
+    const header = document.getElementById(headerId);
+    const content = document.getElementById(contentId);
+    const icon = document.getElementById(iconId);
+
+    if (header && content && icon) {
+        header.addEventListener('click', () => {
+            content.classList.toggle('open');
+            icon.classList.toggle('open');
+        });
+    }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
-    // Setup collapsible control library first, as it's independent of data loading.
-    const controlLibraryHeader = document.getElementById('control-library-header');
-    const controlLibraryContent = document.getElementById('control-library-content');
-    const controlLibraryToggleIcon = document.getElementById('control-library-toggle-icon');
-
-    if (controlLibraryContent && controlLibraryToggleIcon && controlLibraryHeader) {
-        // Start with the library closed by default.
-        controlLibraryHeader.addEventListener('click', () => {
-            controlLibraryContent.classList.toggle('open');
-            controlLibraryToggleIcon.classList.toggle('open');
-        });
-    }
-
-    // Setup collapsible guide
-    const guideHeader = document.getElementById('guide-header');
-    const guideContent = document.getElementById('guide-content');
-    const guideToggleIcon = document.getElementById('guide-toggle-icon');
-
-    if (guideHeader && guideContent && guideToggleIcon) {
-        guideHeader.addEventListener('click', () => {
-            guideContent.classList.toggle('open');
-            guideToggleIcon.classList.toggle('open');
-        });
-    }
+    // Setup all collapsible sections
+    setupCollapsible('guide-header', 'guide-content', 'guide-toggle-icon');
+    setupCollapsible('control-library-header', 'control-library-content', 'control-library-toggle-icon');
+    setupCollapsible('input-form-header', 'input-form-content', 'input-form-toggle-icon');
+    setupCollapsible('risk-chart-header', 'risk-chart-content', 'risk-chart-toggle-icon');
+    setupCollapsible('risk-table-header', 'risk-table-content', 'risk-table-toggle-icon');
 
     initializeScenarios();
     initializeControls();
