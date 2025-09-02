@@ -4,8 +4,6 @@ const clearDataButton = document.getElementById('clear-data-btn');
 const tableBody = document.getElementById('risk-table-body');
 const errorMessage = document.getElementById('error-message');
 
-const STORAGE_KEY = 'riskCalculatorScenarios';
-
 const inputs = {
     scenario: document.getElementById('scenario'),
     conf_impact: document.getElementById('conf_impact'),
@@ -25,151 +23,111 @@ const thresholdInputs = {
     critical: document.getElementById('critical_threshold'),
 };
 
-const previewElements = {
-    sle: document.getElementById('sle-preview'),
-    aro: document.getElementById('aro-preview'),
-    ale: document.getElementById('ale-preview'),
-    level: document.getElementById('level-preview'),
-};
-
 const exampleData = [
-    { scenario: 'Ransomware encrypts primary file server', min_loss: 50000, likely_loss: 150000, max_loss: 500000, min_freq: 0.1, likely_freq: 0.5, max_freq: 1, freq_controls: 3, conf_impact: 1, integ_impact: 2, avail_impact: 3, c_mit: 5, i_mit: 3, a_mit: 2 },
-    { scenario: 'Successful phishing of finance executive', min_loss: 25000, likely_loss: 75000, max_loss: 200000, min_freq: 0.5, likely_freq: 2, max_freq: 5, freq_controls: 2, conf_impact: 3, integ_impact: 3, avail_impact: 1, c_mit: 3, i_mit: 4, a_mit: 5 },
-    { scenario: 'Cloud storage misconfiguration exposes PII', min_loss: 100000, likely_loss: 500000, max_loss: 2000000, min_freq: 0.05, likely_freq: 0.2, max_freq: 0.5, freq_controls: 4, conf_impact: 3, integ_impact: 1, avail_impact: 1, c_mit: 2, i_mit: 5, a_mit: 5 },
+    { scenario: 'Ransomware encrypts primary file server', conf_impact: "1", integ_impact: "2", avail_impact: "3", min_loss: "50000", likely_loss: "150000", max_loss: "500000", min_freq: "0.1", likely_freq: "0.5", max_freq: "1", applicableControls: ['A.8.7', 'A.8.13'] },
+    { scenario: 'Successful phishing of finance executive', conf_impact: "3", integ_impact: "3", avail_impact: "1", min_loss: "25000", likely_loss: "75000", max_loss: "200000", min_freq: "0.5", likely_freq: "2", max_freq: "5", applicableControls: ['A.6.3', 'A.8.23'] },
 ];
 
 let riskScenarios = [];
-let calculatedScenarios = [];
 let editIndex = null;
-let riskChart = null;
-let histogramChart = null;
-const chartContainer = document.getElementById('chart-container');
-const detailsModal = document.getElementById('details-modal');
-const modalCloseButton = document.getElementById('modal-close-btn');
-const modalTitle = document.getElementById('modal-title');
-
-function saveState() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(riskScenarios));
-}
 
 function initializeScenarios() {
-    const savedScenarios = localStorage.getItem(STORAGE_KEY);
-    if (savedScenarios) {
-        riskScenarios = JSON.parse(savedScenarios);
+    const saved = localStorage.getItem('riskCalculatorScenarios');
+    if (saved && saved !== '[]') {
+        riskScenarios = JSON.parse(saved);
     } else {
         riskScenarios = [...exampleData];
     }
 }
 
+function saveRiskFromForm() {
+    const currentValues = {};
+    for (const key in inputs) {
+        currentValues[key] = inputs[key].value;
+    }
+    if (!currentValues.scenario.trim()) {
+        showError("Please enter a scenario description.");
+        return;
+    }
+
+    const selectedControls = [];
+    const controlCheckboxes = document.querySelectorAll('#applicable-controls-container input[type="checkbox"]:checked');
+    controlCheckboxes.forEach(cb => selectedControls.push(cb.value));
+    currentValues.applicableControls = selectedControls;
+
+    if (editIndex !== null) {
+        riskScenarios[editIndex] = currentValues;
+    } else {
+        riskScenarios.push(currentValues);
+    }
+    localStorage.setItem('riskCalculatorScenarios', JSON.stringify(riskScenarios));
+    renderApp();
+    resetForm();
+}
+
+function resetForm() {
+    Object.values(inputs).forEach(input => { input.value = ''; });
+    renderApplicableControls();
+    editIndex = null;
+    addButton.textContent = 'Add Risk Scenario';
+    cancelButton.classList.add('hidden');
+    hideError();
+}
+
 function loadScenarioForEdit(index) {
     const scenarioData = riskScenarios[index];
     if (!scenarioData) return;
-
     editIndex = index;
-
     for (const key in inputs) {
-        if(inputs[key] && scenarioData[key] !== undefined) {
+        if (inputs[key] && scenarioData[key] !== undefined) {
             inputs[key].value = scenarioData[key];
         }
     }
-
+    renderApplicableControls(scenarioData.applicableControls || []);
     addButton.textContent = 'Update Scenario';
     cancelButton.classList.remove('hidden');
-
-    renderApplicableControls(scenarioData.applicableControls || []);
-
-    // Also update the live preview
-    const thresholds = {
-        medium: parseFloat(thresholdInputs.medium.value) || 0,
-        high: parseFloat(thresholdInputs.high.value) || 0,
-        critical: parseFloat(thresholdInputs.critical.value) || 0,
-    };
-    updateLivePreview(thresholds);
 }
 
-function calculateRisk(data, thresholds) {
-    const NUM_TRIALS = 100; // Reduced for performance. TODO: Move to a web worker.
-    const PERT_GAMMA = 4;
-
-    const valueKeys = Object.keys(inputs).filter(k => k !== 'scenario');
-    const allValues = valueKeys.map(key => data[key]);
-    const parsedVals = allValues.map(v => parseFloat(v));
-
-    if (parsedVals.some(isNaN)) {
-        return null;
-    }
+function calculateRisk(data) {
+    const valueKeys = Object.keys(inputs);
+    const parsedVals = valueKeys.map(key => parseFloat(data[key]));
+    if (parsedVals.some(isNaN)) return null;
 
     const [confImpact, integImpact, availImpact, minLoss, likelyLoss, maxLoss, minFreq, likelyFreq, maxFreq] = parsedVals;
-
     if (minLoss > likelyLoss || likelyLoss > maxLoss || minFreq > likelyFreq || likelyFreq > maxFreq) {
         showError("Min values cannot be greater than Likely or Max values.");
-        return null;
-    } else if (thresholds.medium >= thresholds.high || thresholds.high >= thresholds.critical) {
-        showError("Risk level thresholds must be in increasing order.");
         return null;
     }
     hideError();
 
     let combinedModifier = 1.0;
     if (data.applicableControls && data.applicableControls.length > 0) {
-        const controlEffectivenessValues = data.applicableControls.map(id => {
+        const controlModifiers = data.applicableControls.map(id => {
             const state = getControlState(id);
-            // Only consider controls that are marked as implemented
-            return state.implemented ? state.effectiveness : 0;
+            return state.implemented ? 1 - (state.effectiveness / 100) : 1;
         });
-
-        // Convert effectiveness (0-100) to individual risk reduction modifiers (1.0 - 0.0)
-        // and multiply them to get a combined modifier.
-        const controlModifiers = controlEffectivenessValues.map(eff => 1 - (eff / 100));
         if (controlModifiers.length > 0) {
             combinedModifier = controlModifiers.reduce((acc, val) => acc * val, 1.0);
         }
     }
 
-    // For now, we'll apply the same modifier to both magnitude and frequency.
-    // A future enhancement could be to classify controls.
     const magnitudeControlModifier = combinedModifier;
     const frequencyControlModifier = combinedModifier;
 
-    // Helper for PERT sampling using Normal Approximation
-    const getPertSample = (min, mostLikely, max) => {
-        if (max === min) return min;
-        const meanVal = (min + PERT_GAMMA * mostLikely + max) / (PERT_GAMMA + 2);
-        const stdDev = (max - min) / (PERT_GAMMA + 2);
-        let sample = meanVal + stdDev * random_normal();
-        return Math.max(min, Math.min(sample, max)); // Clamp to bounds
-    };
-
-    const simulatedAles = [];
-    const simulatedSles = [];
-    const simulatedAros = [];
-
-    for (let i = 0; i < NUM_TRIALS; i++) {
-        const inherentSLE = getPertSample(minLoss, likelyLoss, maxLoss);
-        const inherentARO = getPertSample(minFreq, likelyFreq, maxFreq);
-
-        const residualSLE = inherentSLE * magnitudeControlModifier;
-        const residualARO = inherentARO * frequencyControlModifier;
-        const finalALE = residualSLE * residualARO;
-
-        simulatedSles.push(residualSLE);
-        simulatedAros.push(residualARO);
-        simulatedAles.push(finalALE);
-    }
-
-    const meanALE = mean(simulatedAles);
-    const p90ALE = quantile(simulatedAles, 0.9);
-    const meanSLE = mean(simulatedSles);
-    const meanARO = mean(simulatedAros);
+    const inherentSLE = (minLoss + 4 * likelyLoss + maxLoss) / 6;
+    const inherentARO = (minFreq + 4 * likelyFreq + maxFreq) / 6;
+    const residualSLE = inherentSLE * magnitudeControlModifier;
+    const residualARO = inherentARO * frequencyControlModifier;
+    const finalALE = residualSLE * residualARO;
 
     let riskLevel, riskColorClass;
-    if (meanALE >= thresholds.critical) {
+    if (finalALE >= thresholdInputs.critical.value) {
         riskLevel = "Critical";
         riskColorClass = "bg-red-600 text-white";
-    } else if (meanALE >= thresholds.high) {
+    } else if (finalALE >= thresholdInputs.high.value) {
         riskLevel = "High";
         riskColorClass = "bg-orange-500 text-white";
-    } else if (meanALE >= thresholds.medium) {
+    } else if (finalALE >= thresholdInputs.medium.value) {
         riskLevel = "Medium";
         riskColorClass = "bg-yellow-400 text-black";
     } else {
@@ -177,137 +135,47 @@ function calculateRisk(data, thresholds) {
         riskColorClass = "bg-green-500 text-white";
     }
 
-    return { ...data, meanSLE, meanARO, meanALE, p90ALE, riskLevel, riskColorClass, rawAles: simulatedAles };
+    return { ...data, residualSLE, residualARO, finalALE, riskLevel, riskColorClass };
 }
 
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-function renderRow(calculatedData, index) {
+function renderRow(data, index) {
+    const calculated = calculateRisk(data);
+    if (!calculated) return;
+
     const newRow = tableBody.insertRow();
     newRow.className = 'bg-white border-b';
     newRow.innerHTML = `
-        <td class="px-4 py-3 font-medium text-gray-900">${escapeHTML(calculatedData.scenario)}</td>
-        <td class="px-4 py-3 text-center font-mono">${currencyFormatter.format(calculatedData.meanSLE)}</td>
-        <td class="px-4 py-3 text-center font-mono">${calculatedData.meanARO.toFixed(2)}</td>
-        <td class="px-4 py-3 text-center font-mono">${currencyFormatter.format(calculatedData.meanALE)}</td>
-        <td class="px-4 py-3 text-center font-mono">${currencyFormatter.format(calculatedData.p90ALE)}</td>
-        <td class="px-4 py-3 text-center font-bold ${calculatedData.riskColorClass}">${calculatedData.riskLevel}</td>
+        <td class="px-4 py-3 font-medium text-gray-900">${escapeHTML(calculated.scenario)}</td>
+        <td class="px-4 py-3 text-center font-mono">${currencyFormatter.format(calculated.residualSLE)}</td>
+        <td class="px-4 py-3 text-center font-mono">${calculated.residualARO.toFixed(2)}</td>
+        <td class="px-4 py-3 text-center font-mono">${currencyFormatter.format(calculated.finalALE)}</td>
+        <td class="px-4 py-3 text-center font-bold ${calculated.riskColorClass}">${calculated.riskLevel}</td>
         <td class="px-4 py-3 text-center">
             <button class="edit-btn text-blue-600 hover:underline mr-2" data-index="${index}">Edit</button>
-            <button class="details-btn text-green-600 hover:underline" data-index="${index}">Details</button>
         </td>
     `;
 }
 
-function renderRiskChart(calculatedScenarios) {
-    const riskChartCanvas = document.getElementById('risk-chart');
-    const chartPlaceholder = document.getElementById('chart-placeholder');
-
-    if (calculatedScenarios.length === 0) {
-        riskChartCanvas.classList.add('hidden');
-        chartPlaceholder.classList.remove('hidden');
-        if(riskChart) {
-            riskChart.destroy();
-            riskChart = null;
-        }
-        return;
-    }
-    riskChartCanvas.classList.remove('hidden');
-    chartPlaceholder.classList.add('hidden');
-
-    const ctx = riskChartCanvas.getContext('2d');
-    const labels = calculatedScenarios.map(s => s.scenario);
-    const data = calculatedScenarios.map(s => s.meanALE);
-    const backgroundColors = calculatedScenarios.map(s => {
-        if (s.riskLevel === 'Critical') return 'rgba(220, 38, 38, 0.7)';
-        if (s.riskLevel === 'High') return 'rgba(249, 115, 22, 0.7)';
-        if (s.riskLevel === 'Medium') return 'rgba(250, 204, 21, 0.7)';
-        return 'rgba(34, 197, 94, 0.7)';
-    });
-
-    if (riskChart) {
-        riskChart.destroy();
-    }
-
-    riskChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Annualized Loss Expectancy (ALE)',
-                data: data,
-                backgroundColor: backgroundColors,
-                borderColor: backgroundColors.map(c => c.replace('0.7', '1')),
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            indexAxis: 'y',
-            scales: {
-                x: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function(value, index, values) {
-                            return currencyFormatter.format(value);
-                        }
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
-                            }
-                            if (context.parsed.x !== null) {
-                                label += currencyFormatter.format(context.parsed.x);
-                            }
-                            return label;
-                        }
-                    }
-                }
-            }
-        }
-    });
+function renderApp() {
+    tableBody.innerHTML = '';
+    riskScenarios.forEach((data, index) => renderRow(data, index));
 }
 
-function updateLivePreview(thresholds) {
-    const currentValues = {};
-    for(const key in inputs) {
-        currentValues[key] = inputs[key].value;
-    }
-    const calculatedData = calculateRisk(currentValues, thresholds);
-
-    if (calculatedData) {
-        previewElements.sle.textContent = currencyFormatter.format(calculatedData.meanSLE);
-        previewElements.aro.textContent = calculatedData.meanARO.toFixed(2);
-        previewElements.ale.textContent = currencyFormatter.format(calculatedData.meanALE);
-        previewElements.level.textContent = calculatedData.riskLevel;
-        previewElements.level.className = `mt-1 text-lg font-bold p-2 rounded-md ${calculatedData.riskColorClass}`;
-    } else {
-        previewElements.sle.textContent = '-';
-        previewElements.aro.textContent = '-';
-        previewElements.ale.textContent = '-';
-        previewElements.level.textContent = '-';
-        previewElements.level.className = 'mt-1 text-lg font-bold p-2 rounded-md bg-gray-200 text-gray-500';
-    }
+function showError(message) {
+    errorMessage.textContent = message;
+    errorMessage.classList.remove('hidden');
 }
 
-function updateRiskLevelSummary(thresholds) {
-    const summaryEl = document.getElementById('risk-level-summary');
-    summaryEl.innerHTML = `
-        <span class="text-green-600">Low: &lt; ${currencyFormatter.format(thresholds.medium)}</span>
-        <span class="text-yellow-600">Medium: &lt; ${currencyFormatter.format(thresholds.high)}</span>
-        <span class="text-orange-600">High: &lt; ${currencyFormatter.format(thresholds.critical)}</span>
-        <span class="text-red-600">Critical: &ge; ${currencyFormatter.format(thresholds.critical)}</span>
-    `;
+function hideError() {
+     errorMessage.classList.add('hidden');
+}
+
+function escapeHTML(str) {
+    const p = document.createElement('p');
+    p.appendChild(document.createTextNode(str));
+    return p.innerHTML;
 }
 
 function renderApplicableControls(selectedControlIds = []) {
@@ -326,275 +194,29 @@ function renderApplicableControls(selectedControlIds = []) {
 
         const wrapper = document.createElement('div');
         wrapper.className = 'flex items-center';
-
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.id = `applicable-${control.id}`;
         checkbox.value = control.id;
         checkbox.checked = selectedControlIds.includes(control.id);
         checkbox.className = 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600';
-
         const label = document.createElement('label');
         label.htmlFor = `applicable-${control.id}`;
         label.className = 'ml-2 text-sm text-gray-600';
         label.textContent = control.id;
-
         wrapper.appendChild(checkbox);
         wrapper.appendChild(label);
         container.appendChild(wrapper);
     });
 }
 
-function resetForm() {
-    Object.values(inputs).forEach(input => { if(input.type !== 'button') input.value = ''; });
-    renderApplicableControls(); // Clear and render the controls list
-    editIndex = null;
-    addButton.textContent = 'Add Risk Scenario';
-    cancelButton.classList.add('hidden');
-    hideError();
-    // Also update the live preview
-    const thresholds = {
-        medium: parseFloat(thresholdInputs.medium.value) || 0,
-        high: parseFloat(thresholdInputs.high.value) || 0,
-        critical: parseFloat(thresholdInputs.critical.value) || 0,
-    };
-    updateLivePreview(thresholds);
-}
-
-function saveRiskFromForm() {
-    const currentValues = {};
-    for(const key in inputs) {
-        currentValues[key] = inputs[key].value;
-    }
-    if (!currentValues.scenario.trim()) {
-         showError("Please enter a scenario description.");
-         return;
-    }
-
-    const selectedControls = [];
-    const controlCheckboxes = document.querySelectorAll('#applicable-controls-container input[type="checkbox"]:checked');
-    controlCheckboxes.forEach(cb => selectedControls.push(cb.value));
-    currentValues.applicableControls = selectedControls;
-
-    if (editIndex !== null) {
-        // Update existing scenario
-        riskScenarios[editIndex] = currentValues;
-    } else {
-        // Add new scenario
-        riskScenarios.push(currentValues);
-    }
-
-saveState();
-    renderApp();
-    resetForm();
-}
-
-function renderApp() {
-    const thresholds = {
-        medium: parseFloat(thresholdInputs.medium.value) || 0,
-        high: parseFloat(thresholdInputs.high.value) || 0,
-        critical: parseFloat(thresholdInputs.critical.value) || 0,
-    };
-
-    updateRiskLevelSummary(thresholds);
-    tableBody.innerHTML = ''; // Clear table
-
-    calculatedScenarios = []; // Reset the global array
-    let hasError = false;
-    riskScenarios.forEach((data, index) => {
-        const calculated = calculateRisk(data, thresholds);
-        if (calculated) {
-            calculatedScenarios.push(calculated);
-            renderRow(calculated, index);
-        } else {
-            hasError = true;
-        }
-    });
-
-    if(!hasError) hideError();
-
-    renderRiskChart(calculatedScenarios);
-    updateLivePreview(thresholds);
-}
-
-function showError(message) {
-    errorMessage.textContent = message;
-    errorMessage.classList.remove('hidden');
-}
-
-function hideError() {
-     errorMessage.classList.add('hidden');
-}
-
-function escapeHTML(str) {
-    const p = document.createElement('p');
-    p.appendChild(document.createTextNode(str));
-    return p.innerHTML;
-}
-
-function openDetailsModal(index) {
-    const scenario = calculatedScenarios[index];
-    if (!scenario) return;
-
-    detailsModal.classList.remove('hidden');
-    modalTitle.textContent = `ALE Distribution: ${escapeHTML(scenario.scenario)}`;
-
-    renderHistogram(scenario.rawAles);
-}
-
-function closeDetailsModal() {
-    detailsModal.classList.add('hidden');
-    if (histogramChart) {
-        histogramChart.destroy();
-        histogramChart = null;
-    }
-}
-
-function renderHistogram(ales) {
-    const ctx = document.getElementById('histogram-chart').getContext('2d');
-
-    // Simple binning logic
-    const min = Math.min(...ales);
-    const max = Math.max(...ales);
-    const numBins = 30;
-    const binWidth = (max - min) / numBins;
-    const bins = Array(numBins).fill(0);
-    const labels = [];
-
-    for (let i = 0; i < numBins; i++) {
-        const binStart = min + i * binWidth;
-        const binEnd = binStart + binWidth;
-        labels.push(`${currencyFormatter.format(binStart)}`);
-    }
-
-    ales.forEach(ale => {
-        if (ale < min || ale > max) return; // Should not happen
-        let binIndex = Math.floor((ale - min) / binWidth);
-        if (binIndex === numBins) binIndex--; // Put max value in last bin
-        bins[binIndex]++;
-    });
-
-    if (histogramChart) {
-        histogramChart.destroy();
-    }
-
-    histogramChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Frequency',
-                data: bins,
-                backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                borderColor: 'rgba(54, 162, 235, 1)',
-                borderWidth: 1,
-                barPercentage: 1,
-                categoryPercentage: 1,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    title: { display: true, text: 'Number of Simulated Years (Frequency)' }
-                },
-                x: {
-                    title: { display: true, text: 'Annualized Loss Expectancy (ALE) Bins' }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                     callbacks: {
-                        title: function(context) {
-                            const index = context[0].dataIndex;
-                            const binStart = min + index * binWidth;
-                            const binEnd = binStart + binWidth;
-                             return `ALE: ${currencyFormatter.format(binStart)} - ${currencyFormatter.format(binEnd)}`;
-                        },
-                        label: function(context) {
-                            return `Frequency: ${context.parsed.y}`;
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
-function random_normal() {
-    let u = 0, v = 0;
-    while(u === 0) u = Math.random();
-    while(v === 0) v = Math.random();
-    return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
-}
-
-function mean(arr) {
-    if (arr.length === 0) return 0;
-    return arr.reduce((a, b) => a + b, 0) / arr.length;
-}
-
-function quantile(arr, q) {
-    if (arr.length === 0) return 0;
-    const sorted = arr.slice().sort((a, b) => a - b);
-    const pos = (sorted.length - 1) * q;
-    const base = Math.floor(pos);
-    const rest = pos - base;
-    if (sorted[base + 1] !== undefined) {
-        return sorted[base] + rest * (sorted[base + 1] - sorted[base]);
-    } else {
-        return sorted[base];
-    }
-}
-
-cancelButton.addEventListener('click', resetForm);
-addButton.addEventListener('click', saveRiskFromForm);
-modalCloseButton.addEventListener('click', closeDetailsModal);
-clearDataButton.addEventListener('click', () => {
-    if (confirm('Are you sure you want to clear all scenarios? This will remove any saved data.')) {
-        localStorage.removeItem(STORAGE_KEY);
-        riskScenarios = []; // Clear the array
-        renderApp();
-    }
-});
-
-Object.values(inputs).forEach(input => {
-    input.addEventListener('input', () => {
-         const thresholds = {
-            medium: parseFloat(thresholdInputs.medium.value) || 0,
-            high: parseFloat(thresholdInputs.high.value) || 0,
-            critical: parseFloat(thresholdInputs.critical.value) || 0,
-        };
-        updateLivePreview(thresholds);
-    });
-});
-Object.values(thresholdInputs).forEach(input => {
-    input.addEventListener('input', renderApp);
-});
-
-tableBody.addEventListener('click', (event) => {
-    if (event.target.classList.contains('edit-btn')) {
-        const index = event.target.getAttribute('data-index');
-        loadScenarioForEdit(parseInt(index, 10));
-    }
-    if (event.target.classList.contains('details-btn')) {
-        const index = event.target.getAttribute('data-index');
-        openDetailsModal(parseInt(index, 10));
-    }
-});
-
 function renderControlLibrary() {
     const container = document.getElementById('control-library-container');
-    container.innerHTML = ''; // Clear existing content
+    container.innerHTML = '';
+    const categoryScores = getCategoryScores();
 
     const controlsByCategory = ISO_27001_CONTROLS.reduce((acc, control) => {
-        if (!acc[control.category]) {
-            acc[control.category] = [];
-        }
+        if (!acc[control.category]) acc[control.category] = [];
         acc[control.category].push(control);
         return acc;
     }, {});
@@ -602,41 +224,49 @@ function renderControlLibrary() {
     for (const category in controlsByCategory) {
         const fieldset = document.createElement('fieldset');
         fieldset.className = 'p-4 border rounded-lg';
-
         const legend = document.createElement('legend');
-        legend.className = 'px-2 font-bold text-lg';
-        legend.textContent = `${category} Controls`;
+        legend.className = 'px-2 font-bold text-lg cursor-pointer flex justify-between items-center w-full';
+        const leftSideOfLegend = document.createElement('div');
+        leftSideOfLegend.className = 'flex items-center';
+        const titleSpan = document.createElement('span');
+        titleSpan.textContent = `${category} Controls`;
+        const scoreSpan = document.createElement('span');
+        scoreSpan.className = 'ml-4 text-sm font-normal bg-gray-200 text-gray-700 px-2 py-1 rounded-full';
+        scoreSpan.id = `score-${category}`;
+        scoreSpan.textContent = `${categoryScores[category]}%`;
+        leftSideOfLegend.appendChild(titleSpan);
+        leftSideOfLegend.appendChild(scoreSpan);
+        const chevronSpan = document.createElement('span');
+        chevronSpan.innerHTML = '&#9662;';
+        chevronSpan.className = 'transition-transform duration-300';
+        legend.appendChild(leftSideOfLegend);
+        legend.appendChild(chevronSpan);
         fieldset.appendChild(legend);
-
         const grid = document.createElement('div');
-        grid.className = 'control-grid';
-
+        grid.className = 'control-grid hidden';
+        legend.addEventListener('click', () => {
+            grid.classList.toggle('hidden');
+            chevronSpan.classList.toggle('-rotate-180');
+        });
         controlsByCategory[category].forEach(control => {
             const state = getControlState(control.id);
-
             const controlWrapper = document.createElement('div');
             controlWrapper.className = 'flex items-center justify-between';
-
             const leftSide = document.createElement('div');
             leftSide.className = 'flex items-center';
-
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
             checkbox.id = `control-${control.id}`;
             checkbox.checked = state.implemented;
             checkbox.className = 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600';
-
             const label = document.createElement('label');
             label.htmlFor = `control-${control.id}`;
             label.className = 'ml-3 text-sm text-gray-700';
             label.innerHTML = `<span class="font-semibold">${control.id}</span>: ${control.name}`;
-
             leftSide.appendChild(checkbox);
             leftSide.appendChild(label);
-
             const rightSide = document.createElement('div');
             rightSide.className = 'flex items-center space-x-2';
-
             const slider = document.createElement('input');
             slider.type = 'range';
             slider.dataset.testid = `slider-${control.id}`;
@@ -646,51 +276,60 @@ function renderControlLibrary() {
             slider.value = state.effectiveness;
             slider.disabled = !state.implemented;
             slider.className = 'w-24 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer';
-
             const percentage = document.createElement('span');
             percentage.className = 'text-sm font-mono text-gray-600 w-12 text-right';
             percentage.textContent = `${state.effectiveness}%`;
-
             if (!state.implemented) {
                 slider.classList.add('opacity-50');
                 percentage.classList.add('opacity-50');
             }
-
             checkbox.addEventListener('change', (e) => {
                 const implemented = e.target.checked;
                 slider.disabled = !implemented;
-                if (!implemented) {
-                    slider.classList.add('opacity-50');
-                    percentage.classList.add('opacity-50');
-                } else {
-                    slider.classList.remove('opacity-50');
-                    percentage.classList.remove('opacity-50');
-                }
+                slider.classList.toggle('opacity-50', !implemented);
+                percentage.classList.toggle('opacity-50', !implemented);
                 updateControlState(control.id, implemented, parseInt(slider.value));
+                const newScores = getCategoryScores();
+                document.getElementById(`score-${control.category}`).textContent = `${newScores[control.category]}%`;
             });
-
             slider.addEventListener('input', (e) => {
                 const effectiveness = parseInt(e.target.value);
                 percentage.textContent = `${effectiveness}%`;
                 updateControlState(control.id, checkbox.checked, effectiveness);
+                const newScores = getCategoryScores();
+                document.getElementById(`score-${control.category}`).textContent = `${newScores[control.category]}%`;
             });
-
             rightSide.appendChild(slider);
             rightSide.appendChild(percentage);
-
             controlWrapper.appendChild(leftSide);
             controlWrapper.appendChild(rightSide);
             grid.appendChild(controlWrapper);
         });
-
         fieldset.appendChild(grid);
         container.appendChild(fieldset);
     }
 }
 
+cancelButton.addEventListener('click', resetForm);
+addButton.addEventListener('click', saveRiskFromForm);
+clearDataButton.addEventListener('click', () => {
+    if (confirm('Are you sure you want to clear all scenarios? This will remove any saved data.')) {
+        localStorage.removeItem('riskCalculatorScenarios');
+        riskScenarios = [];
+        renderApp();
+    }
+});
+
+tableBody.addEventListener('click', (event) => {
+    if (event.target.classList.contains('edit-btn')) {
+        const index = event.target.getAttribute('data-index');
+        loadScenarioForEdit(parseInt(index, 10));
+    }
+});
+
 window.addEventListener('DOMContentLoaded', () => {
+    initializeControls();
     initializeScenarios();
-    initializeControls(); // New
     renderApp();
-    renderControlLibrary(); // New
+    renderControlLibrary();
 });

@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quantitative Cyber Risk Calculator</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="src/css/style.css">
     <link rel="preconnect" href="https://rsms.me/">
     <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
@@ -24,10 +23,9 @@
                 <thead class="bg-gray-50 text-xs text-gray-700 uppercase">
                     <tr>
                         <th scope="col" class="px-4 py-3 min-w-[200px]">Threat Scenario</th>
-                        <th scope="col" class="px-4 py-3 text-center font-semibold">Mean SLE</th>
-                        <th scope="col" class="px-4 py-3 text-center font-semibold">Mean ARO</th>
-                        <th scope="col" class="px-4 py-3 text-center font-semibold">Mean ALE</th>
-                        <th scope="col" class="px-4 py-3 text-center font-semibold">90th %ile ALE</th>
+                        <th scope="col" class="px-4 py-3 text-center font-semibold">SLE (Single Loss)</th>
+                        <th scope="col" class="px-4 py-3 text-center font-semibold">ARO (Annual Occurrence)</th>
+                        <th scope="col" class="px-4 py-3 text-center font-semibold">ALE (Annual Loss)</th>
                         <th scope="col" class="px-4 py-3 text-center font-semibold">Risk Level</th>
                         <th scope="col" class="px-4 py-3 text-center font-semibold">Actions</th>
                     </tr>
@@ -46,25 +44,9 @@
             </div>
         </div>
 
-        <!-- Risk Chart -->
-        <div id="chart-container" class="bg-white rounded-lg shadow-md p-6 mb-8">
-            <h2 class="text-2xl font-bold mb-4">Risk Portfolio Overview (ALE)</h2>
-            <div class="relative h-96">
-                <canvas id="risk-chart"></canvas>
-                <div id="chart-placeholder" class="absolute inset-0 flex items-center justify-center text-gray-400 hidden">
-                    <p>Add one or more risk scenarios to generate the chart.</p>
-                </div>
-            </div>
-        </div>
-
         <!-- Input Form -->
         <div class="bg-white p-6 rounded-lg shadow-md mb-8">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-2xl font-bold">Add New Risk Scenario</h2>
-                <button id="clear-data-btn" class="text-sm bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-lg transition duration-300">
-                    Clear All Data
-                </button>
-            </div>
+            <h2 class="text-2xl font-bold mb-4">Add New Risk Scenario</h2>
             <div id="add-risk-form" class="space-y-6">
 
                 <div>
@@ -94,7 +76,6 @@
                     <fieldset class="md:col-span-2 p-4">
                         <legend class="px-2">Applicable ISO 27001 Controls</legend>
                         <div id="applicable-controls-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-48 overflow-y-auto">
-                            <!-- Dynamically populated list of implemented controls -->
                             <p class="text-gray-500 text-sm">No controls implemented yet. Go to the Control Library to add some.</p>
                         </div>
                     </fieldset>
@@ -213,25 +194,8 @@
         </div>
     </div>
 
-    <script src="src/js/iso27001.js" defer></script>
-    <script src="src/js/controls.js" defer></script>
+    <script src="src/js/iso.js" defer></script>
     <script src="src/js/main.js" defer></script>
-
-    <!-- Details Modal -->
-    <div id="details-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl">
-            <div class="p-4 border-b flex justify-between items-center">
-                <h2 id="modal-title" class="text-2xl font-bold">Scenario Details</h2>
-                <button id="modal-close-btn" class="text-gray-500 hover:text-gray-800 text-3xl leading-none">&times;</button>
-            </div>
-            <div class="p-4">
-                <p class="text-sm text-gray-600 mb-4">This histogram shows the distribution of 10,000 simulated Annualized Loss Expectancy (ALE) outcomes for this scenario.</p>
-                <div class="relative h-96">
-                    <canvas id="histogram-chart"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
 
 </body>
 </html>

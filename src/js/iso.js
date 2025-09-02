@@ -100,3 +100,63 @@ const ISO_27001_CONTROLS = [
     { id: 'A.8.33', name: 'Test information', category: 'Technological' },
     { id: 'A.8.34', name: 'Protection of information systems during audit and testing', category: 'Technological' }
 ];
+
+const CONTROLS_STORAGE_KEY = 'riskCalculatorControls';
+
+let controlState = {};
+
+function initializeControls() {
+    const savedState = localStorage.getItem(CONTROLS_STORAGE_KEY);
+    if (savedState) {
+        controlState = JSON.parse(savedState);
+    } else {
+        ISO_27001_CONTROLS.forEach(control => {
+            controlState[control.id] = { implemented: false, effectiveness: 50 };
+        });
+    }
+}
+
+function saveControlState() {
+    localStorage.setItem(CONTROLS_STORAGE_KEY, JSON.stringify(controlState));
+}
+
+function getControlState(controlId) {
+    return controlState[controlId] || { implemented: false, effectiveness: 50 };
+}
+
+function updateControlState(controlId, implemented, effectiveness) {
+    if (controlState[controlId]) {
+        controlState[controlId].implemented = implemented;
+        controlState[controlId].effectiveness = effectiveness;
+        saveControlState();
+    }
+}
+
+function getImplementedControls() {
+    return Object.keys(controlState).filter(id => controlState[id].implemented);
+}
+
+function getCategoryScores() {
+    const categoryScores = {
+        Organizational: { totalEffectiveness: 0, count: 0 },
+        People: { totalEffectiveness: 0, count: 0 },
+        Physical: { totalEffectiveness: 0, count: 0 },
+        Technological: { totalEffectiveness: 0, count: 0 },
+    };
+
+    ISO_27001_CONTROLS.forEach(control => {
+        const state = controlState[control.id];
+        if (state && state.implemented) {
+            categoryScores[control.category].totalEffectiveness += parseInt(state.effectiveness, 10);
+            categoryScores[control.category].count++;
+        }
+    });
+
+    const finalScores = {};
+    for (const category in categoryScores) {
+        const { totalEffectiveness, count } = categoryScores[category];
+        finalScores[category] = count > 0 ? Math.round(totalEffectiveness / count) : 0;
+    }
+
+    return finalScores;
+}
