@@ -127,8 +127,14 @@ function calculateRisk(data, thresholds) {
         }
     }
 
-    // For now, we'll apply the same modifier to both magnitude and frequency.
-    // A future enhancement could be to classify controls.
+    // A key simplification in this model is applying a single, combined modifier to both
+    // financial loss (magnitude) and event frequency. This assumes that the implemented
+    // controls are, on average, equally effective at reducing both the likelihood and
+    // the impact of a risk event.
+    //
+    // A future enhancement would be to classify each ISO control based on whether it
+    // primarily affects frequency (e.g., a firewall), magnitude (e.g., a backup system),
+    // or both, and then calculate separate modifiers for each.
     const magnitudeControlModifier = combinedModifier;
     const frequencyControlModifier = combinedModifier;
 
