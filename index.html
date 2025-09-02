@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quantitative Cyber Risk Calculator</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="src/css/style.css">
     <link rel="preconnect" href="https://rsms.me/">
     <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
@@ -36,9 +37,25 @@
             </table>
         </div>
 
+        <!-- Risk Chart -->
+        <div id="chart-container" class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-2xl font-bold mb-4">Risk Portfolio Overview (ALE)</h2>
+            <div class="relative h-96">
+                <canvas id="risk-chart"></canvas>
+                <div id="chart-placeholder" class="absolute inset-0 flex items-center justify-center text-gray-400 hidden">
+                    <p>Add one or more risk scenarios to generate the chart.</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Input Form -->
         <div class="bg-white p-6 rounded-lg shadow-md mb-8">
-            <h2 class="text-2xl font-bold mb-4">Add New Risk Scenario</h2>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">Add New Risk Scenario</h2>
+                <button id="clear-data-btn" class="text-sm bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-lg transition duration-300 hidden">
+                    Clear Saved Data
+                </button>
+            </div>
             <div id="add-risk-form" class="space-y-6">
 
                 <div>

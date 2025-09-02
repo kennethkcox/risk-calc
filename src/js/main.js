@@ -1,7 +1,10 @@
 const addButton = document.getElementById('add-risk-btn');
 const cancelButton = document.getElementById('cancel-edit-btn');
+const clearDataButton = document.getElementById('clear-data-btn');
 const tableBody = document.getElementById('risk-table-body');
 const errorMessage = document.getElementById('error-message');
+
+const STORAGE_KEY = 'riskCalculatorScenarios';
 
 const inputs = {
     scenario: document.getElementById('scenario'),
@@ -39,8 +42,34 @@ const exampleData = [
     { scenario: 'Cloud storage misconfiguration exposes PII', min_loss: 100000, likely_loss: 500000, max_loss: 2000000, min_freq: 0.05, likely_freq: 0.2, max_freq: 0.5, freq_controls: 4, conf_impact: 3, integ_impact: 1, avail_impact: 1, c_mit: 2, i_mit: 5, a_mit: 5 },
 ];
 
-let riskScenarios = [...exampleData];
+let riskScenarios = [];
 let editIndex = null;
+let riskChart = null;
+const chartContainer = document.getElementById('chart-container');
+
+function saveState() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(riskScenarios));
+    updateClearButtonVisibility();
+}
+
+function initializeScenarios() {
+    const savedScenarios = localStorage.getItem(STORAGE_KEY);
+    if (savedScenarios) {
+        riskScenarios = JSON.parse(savedScenarios);
+    } else {
+        riskScenarios = [...exampleData];
+    }
+    updateClearButtonVisibility();
+}
+
+function updateClearButtonVisibility() {
+    const savedScenarios = localStorage.getItem(STORAGE_KEY);
+    if (savedScenarios) {
+        clearDataButton.classList.remove('hidden');
+    } else {
+        clearDataButton.classList.add('hidden');
+    }
+}
 
 function loadScenarioForEdit(index) {
     const scenarioData = riskScenarios[index];
@@ -139,6 +168,85 @@ function renderRow(calculatedData, index) {
     `;
 }
 
+function renderRiskChart(calculatedScenarios) {
+    const riskChartCanvas = document.getElementById('risk-chart');
+    const chartPlaceholder = document.getElementById('chart-placeholder');
+
+    if (calculatedScenarios.length === 0) {
+        riskChartCanvas.classList.add('hidden');
+        chartPlaceholder.classList.remove('hidden');
+        if(riskChart) {
+            riskChart.destroy();
+            riskChart = null;
+        }
+        return;
+    }
+    riskChartCanvas.classList.remove('hidden');
+    chartPlaceholder.classList.add('hidden');
+
+    const ctx = riskChartCanvas.getContext('2d');
+    const labels = calculatedScenarios.map(s => s.scenario);
+    const data = calculatedScenarios.map(s => s.finalALE);
+    const backgroundColors = calculatedScenarios.map(s => {
+        if (s.riskLevel === 'Critical') return 'rgba(220, 38, 38, 0.7)';
+        if (s.riskLevel === 'High') return 'rgba(249, 115, 22, 0.7)';
+        if (s.riskLevel === 'Medium') return 'rgba(250, 204, 21, 0.7)';
+        return 'rgba(34, 197, 94, 0.7)';
+    });
+
+    if (riskChart) {
+        riskChart.destroy();
+    }
+
+    riskChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Annualized Loss Expectancy (ALE)',
+                data: data,
+                backgroundColor: backgroundColors,
+                borderColor: backgroundColors.map(c => c.replace('0.7', '1')),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value, index, values) {
+                            return currencyFormatter.format(value);
+                        }
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.x !== null) {
+                                label += currencyFormatter.format(context.parsed.x);
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
 function updateLivePreview(thresholds) {
     const currentValues = {};
     for(const key in inputs) {
@@ -204,6 +312,7 @@ function saveRiskFromForm() {
         riskScenarios.push(currentValues);
     }
 
+saveState();
     renderApp();
     resetForm();
 }
@@ -218,11 +327,13 @@ function renderApp() {
     updateRiskLevelSummary(thresholds);
     tableBody.innerHTML = ''; // Clear table
 
+    const calculatedScenarios = [];
     let hasError = false;
-            riskScenarios.forEach((data, index) => {
+    riskScenarios.forEach((data, index) => {
         const calculated = calculateRisk(data, thresholds);
         if (calculated) {
-                    renderRow(calculated, index);
+            calculatedScenarios.push(calculated);
+            renderRow(calculated, index);
         } else {
             hasError = true;
         }
@@ -230,6 +341,7 @@ function renderApp() {
 
     if(!hasError) hideError();
 
+    renderRiskChart(calculatedScenarios);
     updateLivePreview(thresholds);
 }
 
@@ -250,6 +362,14 @@ function escapeHTML(str) {
 
 cancelButton.addEventListener('click', resetForm);
 addButton.addEventListener('click', saveRiskFromForm);
+clearDataButton.addEventListener('click', () => {
+    if (confirm('Are you sure you want to clear all saved scenarios and reset to the examples?')) {
+        localStorage.removeItem(STORAGE_KEY);
+        initializeScenarios();
+        renderApp();
+    }
+});
+
 Object.values(inputs).forEach(input => {
     input.addEventListener('input', () => {
          const thresholds = {
@@ -271,4 +391,7 @@ tableBody.addEventListener('click', (event) => {
     }
 });
 
-window.addEventListener('DOMContentLoaded', renderApp);
+window.addEventListener('DOMContentLoaded', () => {
+    initializeScenarios();
+    renderApp();
+});
