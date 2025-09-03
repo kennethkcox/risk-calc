@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     const appContainer = document.getElementById('isms-app');
-    const ciaFilterContainer = document.getElementById('cia-filter');
+    const ciaInputsContainer = document.getElementById('cia-inputs');
 
     // State will be loaded from localStorage
     let ismsState = {};
@@ -13,8 +13,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // Initialize with default structure if nothing is saved
             ismsState = {
                 soa: {}, // Statement of Applicability
-                auditLog: []
+                auditLog: [],
+                ciaScores: { C: 1, I: 1, A: 1 } // Default CIA scores
             };
+        }
+
+        // Ensure ciaScores exists
+        if (!ismsState.ciaScores) {
+            ismsState.ciaScores = { C: 1, I: 1, A: 1 };
         }
 
         // Ensure all controls have a default entry in the state and migrate old data structure
@@ -56,14 +62,29 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('ismsManagementState', JSON.stringify(ismsState));
     }
 
-    function getFilteredControls() {
-        const filterValue = document.querySelector('input[name="cia-score"]:checked')?.value || '1';
-        const minScore = parseInt(filterValue, 10);
-        // Return all controls if the filter is set to 1 (or is invalid)
-        if (isNaN(minScore) || minScore <= 1) {
-            return ISO_27001_CONTROLS;
-        }
-        return ISO_27001_CONTROLS.filter(control => control.ciaScore >= minScore);
+    function getCIAScores() {
+        const c = parseInt(document.getElementById('cia-c')?.value, 10) || 1;
+        const i = parseInt(document.getElementById('cia-i')?.value, 10) || 1;
+        const a = parseInt(document.getElementById('cia-a')?.value, 10) || 1;
+        return { C: c, I: i, A: a };
+    }
+
+    function setCIAScoresUI(scores) {
+        document.getElementById('cia-c').value = scores.C;
+        document.getElementById('cia-i').value = scores.I;
+        document.getElementById('cia-a').value = scores.A;
+    }
+
+    function calculateRecommendedMaturity(control, ciaScores) {
+        let maxRelevance = 0;
+        if (control.cia.includes('C')) maxRelevance = Math.max(maxRelevance, ciaScores.C);
+        if (control.cia.includes('I')) maxRelevance = Math.max(maxRelevance, ciaScores.I);
+        if (control.cia.includes('A')) maxRelevance = Math.max(maxRelevance, ciaScores.A);
+
+        if (maxRelevance <= 1) return 2; // Low importance -> Recommended Level 2
+        if (maxRelevance === 2) return 4; // Medium importance -> Recommended Level 4
+        if (maxRelevance >= 3) return 5; // High importance -> Recommended Level 5
+        return 0; // Default case
     }
 
     function calculateMaturityScores() {
@@ -72,8 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
             overall: 0
         };
 
-        const filteredControls = getFilteredControls();
-        const controlsByCategory = filteredControls.reduce((acc, control) => {
+        const controlsByCategory = ISO_27001_CONTROLS.reduce((acc, control) => {
             if (!acc[control.category]) {
                 acc[control.category] = [];
             }
@@ -154,8 +174,9 @@ document.addEventListener('DOMContentLoaded', () => {
         maturityScoresContainer.id = 'maturity-scores';
         content.appendChild(maturityScoresContainer);
 
-        const filteredControls = getFilteredControls();
-        const controlsByCategory = filteredControls.reduce((acc, control) => {
+        const ciaScores = getCIAScores();
+
+        const controlsByCategory = ISO_27001_CONTROLS.reduce((acc, control) => {
             if (!acc[control.category]) {
                 acc[control.category] = [];
             }
@@ -166,10 +187,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const sortedCategories = Object.keys(controlsByCategory).sort();
 
         for (const category of sortedCategories) {
-            if (controlsByCategory[category].length === 0) {
-                continue; // Don't render empty categories
-            }
-
             const fieldset = document.createElement('fieldset');
             fieldset.className = 'p-4 border rounded-lg mb-6';
 
@@ -195,6 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const tbody = document.createElement('tbody');
             controlsByCategory[category].forEach(control => {
                 const controlState = ismsState.soa[control.id];
+                const recommendedMaturity = calculateRecommendedMaturity(control, ciaScores);
                 const row = tbody.insertRow();
                 const disabled = controlState.notApplicable ? 'disabled' : '';
                 row.innerHTML = `
@@ -207,6 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <input type="range" min="0" max="5" value="${controlState.maturity}" class="soa-maturity w-full" data-control-id="${control.id}" ${disabled}>
                             <span class="soa-maturity-value font-bold w-4 text-center">${controlState.maturity}</span>
                         </div>
+                        <div class="mt-1 text-xs text-center">Recommended: <span class="font-bold">${recommendedMaturity}</span></div>
                         <div class="mt-2">
                             <label class="flex items-center text-xs">
                                 <input type="checkbox" class="soa-na mr-2" data-control-id="${control.id}" ${controlState.notApplicable ? 'checked' : ''}>
@@ -399,9 +418,13 @@ document.addEventListener('DOMContentLoaded', () => {
         themeSwitcherContainer.appendChild(label);
     }
 
-    if (ciaFilterContainer) {
-        ciaFilterContainer.addEventListener('change', (e) => {
-            if (e.target.name === 'cia-score') {
+    if (ciaInputsContainer) {
+        ciaInputsContainer.addEventListener('input', (e) => {
+            const target = e.target;
+            if (target.type === 'number' && (target.id === 'cia-c' || target.id === 'cia-i' || target.id === 'cia-a')) {
+                // Persist CIA scores in state
+                ismsState.ciaScores = getCIAScores();
+                saveState();
                 render();
             }
         });
@@ -415,5 +438,6 @@ document.addEventListener('DOMContentLoaded', () => {
     createThemeSwitcher(initialTheme);
 
     loadState();
+    setCIAScoresUI(ismsState.ciaScores); // Set UI inputs from loaded state
     render();
 });
