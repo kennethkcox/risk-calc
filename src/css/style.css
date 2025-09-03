@@ -353,3 +353,52 @@ legend {
 .overflow-y-auto {
     overflow-y: auto;
 }
+
+/* ISMS Maturity Styles */
+.maturity-scores-summary {
+    background-color: var(--input-bg-color);
+    border-color: var(--border-color);
+}
+.maturity-score-item {
+    background-color: var(--card-bg-color);
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-color);
+    text-align: center;
+    font-size: 0.875rem;
+}
+.overall-maturity {
+    font-weight: 700;
+    font-size: 1rem;
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-hover-color);
+}
+[data-theme="dark"] .overall-maturity {
+    color: var(--text-color);
+}
+.soa-maturity {
+    height: 0.5rem;
+    background-color: var(--border-color);
+    border-radius: 9999px;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+.soa-maturity::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background: var(--primary-color);
+    cursor: pointer;
+}
+.soa-maturity:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.soa-maturity:disabled::-webkit-slider-thumb {
+    background: var(--secondary-color);
+}
