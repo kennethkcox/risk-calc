@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     const appContainer = document.getElementById('isms-app');
+    const ciaFilterContainer = document.getElementById('cia-filter');
 
     // State will be loaded from localStorage
     let ismsState = {};
@@ -55,13 +56,24 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('ismsManagementState', JSON.stringify(ismsState));
     }
 
+    function getFilteredControls() {
+        const filterValue = document.querySelector('input[name="cia-score"]:checked')?.value || '1';
+        const minScore = parseInt(filterValue, 10);
+        // Return all controls if the filter is set to 1 (or is invalid)
+        if (isNaN(minScore) || minScore <= 1) {
+            return ISO_27001_CONTROLS;
+        }
+        return ISO_27001_CONTROLS.filter(control => control.ciaScore >= minScore);
+    }
+
     function calculateMaturityScores() {
         const scores = {
             categories: {},
             overall: 0
         };
 
-        const controlsByCategory = ISO_27001_CONTROLS.reduce((acc, control) => {
+        const filteredControls = getFilteredControls();
+        const controlsByCategory = filteredControls.reduce((acc, control) => {
             if (!acc[control.category]) {
                 acc[control.category] = [];
             }
@@ -109,7 +121,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!container) return;
 
         let categoryScoresHTML = '';
-        for (const category in scores.categories) {
+        const sortedCategories = Object.keys(scores.categories).sort();
+
+        for (const category of sortedCategories) {
             categoryScoresHTML += `<div class="maturity-score-item"><span class="font-semibold">${category}:</span> ${scores.categories[category]}</div>`;
         }
 
@@ -128,7 +142,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const soaSection = document.createElement('div');
         soaSection.className = 'card';
 
-        // Header for the SoA section
         const header = document.createElement('div');
         header.className = 'card-header';
         header.innerHTML = `<h2>Statement of Applicability (SoA)</h2>`;
@@ -137,14 +150,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const content = document.createElement('div');
         content.className = 'p-4';
 
-        // Maturity scores will be rendered here
         const maturityScoresContainer = document.createElement('div');
         maturityScoresContainer.id = 'maturity-scores';
         content.appendChild(maturityScoresContainer);
 
-
-        // Group controls by category
-        const controlsByCategory = ISO_27001_CONTROLS.reduce((acc, control) => {
+        const filteredControls = getFilteredControls();
+        const controlsByCategory = filteredControls.reduce((acc, control) => {
             if (!acc[control.category]) {
                 acc[control.category] = [];
             }
@@ -152,8 +163,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return acc;
         }, {});
 
-        // Render controls for each category
-        for (const category in controlsByCategory) {
+        const sortedCategories = Object.keys(controlsByCategory).sort();
+
+        for (const category of sortedCategories) {
+            if (controlsByCategory[category].length === 0) {
+                continue; // Don't render empty categories
+            }
+
             const fieldset = document.createElement('fieldset');
             fieldset.className = 'p-4 border rounded-lg mb-6';
 
@@ -211,7 +227,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         soaSection.appendChild(content);
 
-        // Add event listeners for the inputs
         soaSection.addEventListener('input', (e) => {
             const controlId = e.target.dataset.controlId;
             if (!controlId) return;
@@ -219,13 +234,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target.classList.contains('soa-maturity')) {
                 const maturity = parseInt(e.target.value, 10);
                 ismsState.soa[controlId].maturity = maturity;
-                // Update the value display next to the slider
                 const valueSpan = e.target.nextElementSibling;
                 if (valueSpan && valueSpan.classList.contains('soa-maturity-value')) {
                     valueSpan.textContent = maturity;
                 }
                 saveState();
-                renderMaturityScores(); // Update scores on slider change
+                renderMaturityScores();
             } else if (e.target.classList.contains('soa-justification')) {
                 ismsState.soa[controlId].justification = e.target.value;
                 saveState();
@@ -239,10 +253,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target.classList.contains('soa-na')) {
                 ismsState.soa[controlId].notApplicable = e.target.checked;
                 saveState();
-                render(); // Re-render to disable/enable slider and update scores
+                render();
             }
         });
-
 
         return soaSection;
     }
@@ -259,7 +272,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const content = document.createElement('div');
         content.className = 'p-4';
 
-        // Form for adding a new log entry
         const form = document.createElement('div');
         form.className = 'p-4 border rounded-lg mb-6';
         const controlOptions = ISO_27001_CONTROLS.map(c => `<option value="${c.id}">${c.id}: ${c.name}</option>`).join('');
@@ -279,7 +291,6 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         content.appendChild(form);
 
-        // Table of existing log entries
         const tableContainer = document.createElement('div');
         tableContainer.className = 'table-container';
         const table = document.createElement('table');
@@ -312,9 +323,6 @@ document.addEventListener('DOMContentLoaded', () => {
         tableContainer.appendChild(table);
         content.appendChild(tableContainer);
 
-        auditLogSection.appendChild(content);
-
-        // Event Listeners
         auditLogSection.addEventListener('click', (e) => {
             if (e.target.id === 'add-audit-log-btn') {
                 const date = document.getElementById('audit-date').value || new Date().toISOString().split('T')[0];
@@ -327,9 +335,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
-                ismsState.auditLog.unshift({ date, controlId, finding, status, id: Date.now() }); // Add to beginning
+                ismsState.auditLog.unshift({ date, controlId, finding, status, id: Date.now() });
                 saveState();
-                render(); // Re-render the whole app
+                render();
             }
 
             if (e.target.classList.contains('delete-log-btn')) {
@@ -346,20 +354,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function render() {
-        // Clear the container
         appContainer.innerHTML = '';
-
-        // Render all components
         appContainer.appendChild(renderSoA());
         appContainer.appendChild(renderAuditLog());
-
-        // After rendering the main components, calculate and display the maturity scores
         renderMaturityScores();
     }
 
-    // --- Theme Switcher Logic (borrowed from main.js) ---
     const themeSwitcherContainer = document.getElementById('theme-switcher-container');
-    const THEME_STORAGE_KEY = 'riskCalculatorTheme'; // Use the same key to keep theme consistent
+    const THEME_STORAGE_KEY = 'riskCalculatorTheme';
 
     function applyTheme(theme) {
         if (theme === 'dark') {
@@ -397,15 +399,21 @@ document.addEventListener('DOMContentLoaded', () => {
         themeSwitcherContainer.appendChild(label);
     }
 
+    if (ciaFilterContainer) {
+        ciaFilterContainer.addEventListener('change', (e) => {
+            if (e.target.name === 'cia-score') {
+                render();
+            }
+        });
+    }
+
     const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const initialTheme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
 
     applyTheme(initialTheme);
     createThemeSwitcher(initialTheme);
-    // --- End of Theme Switcher Logic ---
 
-    // Initial load
     loadState();
     render();
 });
