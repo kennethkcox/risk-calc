@@ -15,15 +15,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 auditLog: []
             };
         }
-        // Ensure all controls have a default entry in the state
+
+        // Ensure all controls have a default entry in the state and migrate old data structure
         ISO_27001_CONTROLS.forEach(control => {
-            if (!ismsState.soa[control.id]) {
+            const controlState = ismsState.soa[control.id];
+
+            // If a control from the list is missing from the state, initialize it
+            if (!controlState) {
                 ismsState.soa[control.id] = {
-                    status: 'Not Set',
+                    maturity: 0,
+                    notApplicable: false,
                     justification: ''
                 };
             }
+            // If the control is in an old format (with `status`), migrate it
+            else if (controlState.hasOwnProperty('status')) {
+                const oldStatus = controlState.status;
+                ismsState.soa[control.id].notApplicable = oldStatus === 'Not Applicable';
+                ismsState.soa[control.id].maturity = oldStatus === 'Implemented' ? 5 : 0;
+                // remove old property
+                delete ismsState.soa[control.id].status;
+            }
+            // Ensure new properties exist if state is partially updated
+            if (typeof ismsState.soa[control.id].maturity === 'undefined') {
+                ismsState.soa[control.id].maturity = 0;
+            }
+            if (typeof ismsState.soa[control.id].notApplicable === 'undefined') {
+                ismsState.soa[control.id].notApplicable = false;
+            }
         });
+
         // Ensure audit log exists
         if (!ismsState.auditLog) {
             ismsState.auditLog = [];
@@ -32,6 +53,75 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function saveState() {
         localStorage.setItem('ismsManagementState', JSON.stringify(ismsState));
+    }
+
+    function calculateMaturityScores() {
+        const scores = {
+            categories: {},
+            overall: 0
+        };
+
+        const controlsByCategory = ISO_27001_CONTROLS.reduce((acc, control) => {
+            if (!acc[control.category]) {
+                acc[control.category] = [];
+            }
+            acc[control.category].push(control);
+            return acc;
+        }, {});
+
+        let totalMaturity = 0;
+        let applicableControlsCount = 0;
+
+        for (const category in controlsByCategory) {
+            let categoryMaturity = 0;
+            let categoryApplicableControlsCount = 0;
+
+            controlsByCategory[category].forEach(control => {
+                const controlState = ismsState.soa[control.id];
+                if (controlState && !controlState.notApplicable) {
+                    categoryMaturity += controlState.maturity;
+                    categoryApplicableControlsCount++;
+                }
+            });
+
+            if (categoryApplicableControlsCount > 0) {
+                scores.categories[category] = (categoryMaturity / categoryApplicableControlsCount).toFixed(2);
+            } else {
+                scores.categories[category] = 'N/A';
+            }
+
+            totalMaturity += categoryMaturity;
+            applicableControlsCount += categoryApplicableControlsCount;
+        }
+
+        if (applicableControlsCount > 0) {
+            scores.overall = (totalMaturity / applicableControlsCount).toFixed(2);
+        } else {
+            scores.overall = 'N/A';
+        }
+
+        return scores;
+    }
+
+    function renderMaturityScores() {
+        const scores = calculateMaturityScores();
+        const container = document.getElementById('maturity-scores');
+        if (!container) return;
+
+        let categoryScoresHTML = '';
+        for (const category in scores.categories) {
+            categoryScoresHTML += `<div class="maturity-score-item"><span class="font-semibold">${category}:</span> ${scores.categories[category]}</div>`;
+        }
+
+        container.innerHTML = `
+            <div class="maturity-scores-summary p-4 border rounded-lg mb-6">
+                <h3 class="font-bold text-lg mb-2">Maturity Levels</h3>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    <div class="maturity-score-item overall-maturity"><span class="font-semibold">Overall:</span> ${scores.overall}</div>
+                    ${categoryScoresHTML}
+                </div>
+            </div>
+        `;
     }
 
     function renderSoA() {
@@ -46,6 +136,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const content = document.createElement('div');
         content.className = 'p-4';
+
+        // Maturity scores will be rendered here
+        const maturityScoresContainer = document.createElement('div');
+        maturityScoresContainer.id = 'maturity-scores';
+        content.appendChild(maturityScoresContainer);
+
 
         // Group controls by category
         const controlsByCategory = ISO_27001_CONTROLS.reduce((acc, control) => {
@@ -74,27 +170,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 <thead>
                     <tr>
                         <th style="width: 40%;">Control</th>
-                        <th style="width: 20%;">Implementation Status</th>
-                        <th style="width: 40%;">Justification / Notes</th>
+                        <th style="width: 25%;">Maturity</th>
+                        <th style="width: 35%;">Justification / Notes</th>
                     </tr>
                 </thead>
             `;
 
             const tbody = document.createElement('tbody');
             controlsByCategory[category].forEach(control => {
-                const controlState = ismsState.soa[control.id] || { status: 'Not Set', justification: '' };
+                const controlState = ismsState.soa[control.id];
                 const row = tbody.insertRow();
+                const disabled = controlState.notApplicable ? 'disabled' : '';
                 row.innerHTML = `
                     <td class="px-4 py-3">
                         <span class="font-semibold">${control.id}</span>: ${control.name}
                         <p class="text-xs text-gray-500 mt-1">${control.description}</p>
                     </td>
                     <td class="px-4 py-3">
-                        <select class="table-cell-input soa-status" data-control-id="${control.id}">
-                            <option value="Not Set" ${controlState.status === 'Not Set' ? 'selected' : ''}>Not Set</option>
-                            <option value="Implemented" ${controlState.status === 'Implemented' ? 'selected' : ''}>Implemented</option>
-                            <option value="Not Applicable" ${controlState.status === 'Not Applicable' ? 'selected' : ''}>Not Applicable</option>
-                        </select>
+                        <div class="flex items-center space-x-2">
+                            <input type="range" min="0" max="5" value="${controlState.maturity}" class="soa-maturity w-full" data-control-id="${control.id}" ${disabled}>
+                            <span class="soa-maturity-value font-bold w-4 text-center">${controlState.maturity}</span>
+                        </div>
+                        <div class="mt-2">
+                            <label class="flex items-center text-xs">
+                                <input type="checkbox" class="soa-na mr-2" data-control-id="${control.id}" ${controlState.notApplicable ? 'checked' : ''}>
+                                Not Applicable
+                            </label>
+                        </div>
                     </td>
                     <td class="px-4 py-3">
                         <input type="text" class="table-cell-input soa-justification" data-control-id="${control.id}" value="${controlState.justification}" placeholder="e.g., Implemented via Policy XYZ">
@@ -110,21 +212,37 @@ document.addEventListener('DOMContentLoaded', () => {
         soaSection.appendChild(content);
 
         // Add event listeners for the inputs
-        soaSection.addEventListener('change', (e) => {
-            if (e.target.classList.contains('soa-status')) {
-                const controlId = e.target.dataset.controlId;
-                ismsState.soa[controlId].status = e.target.value;
-                saveState();
-            }
-        });
-
         soaSection.addEventListener('input', (e) => {
-            if (e.target.classList.contains('soa-justification')) {
-                const controlId = e.target.dataset.controlId;
+            const controlId = e.target.dataset.controlId;
+            if (!controlId) return;
+
+            if (e.target.classList.contains('soa-maturity')) {
+                const maturity = parseInt(e.target.value, 10);
+                ismsState.soa[controlId].maturity = maturity;
+                // Update the value display next to the slider
+                const valueSpan = e.target.nextElementSibling;
+                if (valueSpan && valueSpan.classList.contains('soa-maturity-value')) {
+                    valueSpan.textContent = maturity;
+                }
+                saveState();
+                renderMaturityScores(); // Update scores on slider change
+            } else if (e.target.classList.contains('soa-justification')) {
                 ismsState.soa[controlId].justification = e.target.value;
                 saveState();
             }
         });
+
+        soaSection.addEventListener('change', (e) => {
+            const controlId = e.target.dataset.controlId;
+            if (!controlId) return;
+
+            if (e.target.classList.contains('soa-na')) {
+                ismsState.soa[controlId].notApplicable = e.target.checked;
+                saveState();
+                render(); // Re-render to disable/enable slider and update scores
+            }
+        });
+
 
         return soaSection;
     }
@@ -234,6 +352,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Render all components
         appContainer.appendChild(renderSoA());
         appContainer.appendChild(renderAuditLog());
+
+        // After rendering the main components, calculate and display the maturity scores
+        renderMaturityScores();
     }
 
     // --- Theme Switcher Logic (borrowed from main.js) ---
