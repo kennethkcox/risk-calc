@@ -15,6 +15,14 @@ This is a sophisticated, browser-based tool for performing quantitative cyber ri
 *   **Customizable Risk Thresholds**: Define your own financial thresholds for Low, Medium, High, and Critical risk levels.
 *   **Clean, Responsive Interface**: Built with Tailwind CSS for a modern, easy-to-use experience on any device.
 
+## ISMS Management Module
+
+In addition to the risk calculator, this tool now includes a module for managing a basic Information Security Management System (ISMS). Accessible via the `isms.html` file, this module helps you track the implementation of ISO 27001 controls and maintain a simple audit log.
+
+*   **Statement of Applicability (SoA)**: Track the status and justification for each ISO 27001 control.
+*   **Simple Audit Log**: Manually log findings, observations, and notes against specific controls.
+*   **Client-Side Storage**: All data for the ISMS module is stored locally in your browser's `localStorage`.
+
 ## Enterprise-Grade Security
 
 This project is designed with security as a priority. While maintaining its simplicity and portability as a **buildless** application, it incorporates modern security features to protect against common web vulnerabilities.
@@ -27,9 +35,9 @@ This layered security approach makes the tool safer to use, especially in corpor
 ## How to Use
 
 1.  Clone or download this repository.
-2.  Open the `index.html` file in your web browser.
+2.  Open the `index.html` file in your web browser for the Risk Calculator, or open `isms.html` for the ISMS Management Module.
 
-That's it! The application is entirely self-contained.
+That's it! The application is entirely self-contained, with navigation links provided between the two modules.
 
 ## How It Works
 

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; style-src 'self' https://rsms.me 'unsafe-inline'; font-src https://rsms.me; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISMS Management Module</title>
+    <script src="https://cdn.tailwindcss.com" integrity="sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="src/css/style.css">
+    <link rel="preconnect" href="https://rsms.me/">
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" integrity="sha384-STiTZ2kjdnc/em4jSELZZ6VypRToc92cA0m6Nppx3J8C4mt0fjMNUm1xnm1yoP96" crossorigin="anonymous">
+</head>
+<body>
+
+    <div class="container">
+        <header class="text-center mb-8">
+            <div class="flex justify-between items-center mb-2">
+                <a href="index.html" class="btn btn-secondary">&larr; Back to Risk Calculator</a>
+                <h1 class="text-3xl font-bold">ISMS Management Module</h1>
+                <div id="theme-switcher-container" class="theme-switcher">
+                    <!-- Theme switcher will be injected here by JS -->
+                </div>
+            </div>
+            <p class="text-gray-500">A tool for managing your Information Security Management System and preparing for ISO 27001 assessments.</p>
+        </header>
+
+        <main id="isms-app">
+            <!-- ISMS content will be rendered here by isms.js -->
+        </main>
+    </div>
+
+    <script src="src/js/iso27001.js" defer></script>
+    <script src="src/js/isms.js" defer></script>
+
+</body>
+</html>
