@@ -6,7 +6,8 @@ const ISO_27001_CONTROLS = [
         category: 'Organizational',
         description: 'Define and document the organization\'s stance and rules for information security.',
         impacts: ['magnitude', 'frequency'],
-        cia: ['C', 'I', 'A']
+        cia: ['C', 'I', 'A'],
+        ciaScore: 3
     },
     {
         id: 'A.5.2',
@@ -14,7 +15,8 @@ const ISO_27001_CONTROLS = [
         category: 'Organizational',
         description: 'Assign and communicate clear roles for managing and overseeing information security.',
         impacts: ['magnitude', 'frequency'],
-        cia: ['C', 'I', 'A']
+        cia: ['C', 'I', 'A'],
+        ciaScore: 3
     },
     {
         id: 'A.5.3',
@@ -22,7 +24,8 @@ const ISO_27001_CONTROLS = [
         category: 'Organizational',
         description: 'Separate conflicting duties to reduce the risk of unauthorized or unintentional modification or misuse of assets.',
         impacts: ['magnitude'],
-        cia: ['C', 'I']
+        cia: ['C', 'I'],
+        ciaScore: 2
     },
     {
         id: 'A.5.7',
@@ -30,7 +33,8 @@ const ISO_27001_CONTROLS = [
         category: 'Organizational',
         description: 'Collect and analyze information about emerging threats to inform defensive strategies.',
         impacts: ['frequency'],
-        cia: ['C', 'I', 'A']
+        cia: ['C', 'I', 'A'],
+        ciaScore: 3
     },
     {
         id: 'A.5.12',
@@ -38,7 +42,8 @@ const ISO_27001_CONTROLS = [
         category: 'Organizational',
         description: 'Classify information based on its sensitivity, criticality, and legal requirements.',
         impacts: ['magnitude'],
-        cia: ['C']
+        cia: ['C'],
+        ciaScore: 1
     },
     {
         id: 'A.5.14',
@@ -46,7 +51,8 @@ const ISO_27001_CONTROLS = [
         category: 'Organizational',
         description: 'Establish rules and security measures for transferring information, both physically and electronically.',
         impacts: ['magnitude'],
-        cia: ['C', 'I']
+        cia: ['C', 'I'],
+        ciaScore: 2
     },
     {
         id: 'A.5.15',
@@ -54,7 +60,8 @@ const ISO_27001_CONTROLS = [
         category: 'Organizational',
         description: 'Establish a formal policy for controlling access to information and systems.',
         impacts: ['magnitude'],
-        cia: ['C']
+        cia: ['C'],
+        ciaScore: 1
     },
     {
         id: 'A.5.16',
@@ -62,7 +69,8 @@ const ISO_27001_CONTROLS = [
         category: 'Organizational',
         description: 'Manage the full lifecycle of user identities, from creation to deletion.',
         impacts: ['magnitude'],
-        cia: ['C', 'I']
+        cia: ['C', 'I'],
+        ciaScore: 2
     },
     {
         id: 'A.5.19',
@@ -70,7 +78,8 @@ const ISO_27001_CONTROLS = [
         category: 'Organizational',
         description: 'Manage information security risks associated with suppliers and third parties.',
         impacts: ['magnitude', 'frequency'],
-        cia: ['C', 'I', 'A']
+        cia: ['C', 'I', 'A'],
+        ciaScore: 3
     },
     {
         id: 'A.5.23',
@@ -78,7 +87,8 @@ const ISO_27001_CONTROLS = [
         category: 'Organizational',
         description: 'Establish policies for the secure adoption and use of cloud services.',
         impacts: ['magnitude'],
-        cia: ['C', 'I', 'A']
+        cia: ['C', 'I', 'A'],
+        ciaScore: 3
     },
     {
         id: 'A.5.24',
@@ -86,7 +96,8 @@ const ISO_27001_CONTROLS = [
         category: 'Organizational',
         description: 'Develop and maintain a plan for responding to security incidents effectively.',
         impacts: ['magnitude', 'frequency'],
-        cia: ['I', 'A']
+        cia: ['I', 'A'],
+        ciaScore: 2
     },
     {
         id: 'A.5.29',
@@ -94,7 +105,8 @@ const ISO_27001_CONTROLS = [
         category: 'Organizational',
         description: 'Maintain information security controls and continuity during a business disruption.',
         impacts: ['magnitude'],
-        cia: ['A']
+        cia: ['A'],
+        ciaScore: 1
     },
     {
         id: 'A.5.30',
@@ -102,7 +114,8 @@ const ISO_27001_CONTROLS = [
         category: 'Organizational',
         description: 'Ensure that IT systems are resilient and can be recovered to meet business continuity objectives.',
         impacts: ['magnitude'],
-        cia: ['A']
+        cia: ['A'],
+        ciaScore: 1
     },
     {
         id: 'A.5.34',
@@ -110,7 +123,8 @@ const ISO_27001_CONTROLS = [
         category: 'Organizational',
         description: 'Protect Personally Identifiable Information (PII) in accordance with legal and regulatory requirements.',
         impacts: ['magnitude'],
-        cia: ['C']
+        cia: ['C'],
+        ciaScore: 1
     },
     {
         id: 'A.5.35',
@@ -118,7 +132,8 @@ const ISO_27001_CONTROLS = [
         category: 'Organizational',
         description: 'Conduct independent reviews or audits of the information security program to ensure its effectiveness.',
         impacts: ['magnitude', 'frequency'],
-        cia: ['C', 'I', 'A']
+        cia: ['C', 'I', 'A'],
+        ciaScore: 3
     },
 
     // --- People Controls ---
@@ -128,7 +143,8 @@ const ISO_27001_CONTROLS = [
         category: 'People',
         description: 'Provide regular training to all employees on information security policies and procedures.',
         impacts: ['magnitude', 'frequency'],
-        cia: ['C', 'I', 'A']
+        cia: ['C', 'I', 'A'],
+        ciaScore: 3
     },
     {
         id: 'A.6.7',
@@ -136,7 +152,8 @@ const ISO_27001_CONTROLS = [
         category: 'People',
         description: 'Implement security measures to protect information accessed, processed, or stored when working remotely.',
         impacts: ['magnitude'],
-        cia: ['C', 'I', 'A']
+        cia: ['C', 'I', 'A'],
+        ciaScore: 3
     },
     {
         id: 'A.6.8',
@@ -144,7 +161,8 @@ const ISO_27001_CONTROLS = [
         category: 'People',
         description: 'Encourage and enable employees to report observed or suspected security events and weaknesses.',
         impacts: ['frequency'],
-        cia: ['C', 'I', 'A']
+        cia: ['C', 'I', 'A'],
+        ciaScore: 3
     },
 
     // --- Physical Controls ---
@@ -154,7 +172,8 @@ const ISO_27001_CONTROLS = [
         category: 'Physical',
         description: 'Use physical barriers (e.g., walls, fences, gates) to protect areas that contain information and information processing facilities.',
         impacts: ['magnitude'],
-        cia: ['A']
+        cia: ['A'],
+        ciaScore: 1
     },
     {
         id: 'A.7.2',
@@ -162,7 +181,8 @@ const ISO_27001_CONTROLS = [
         category: 'Physical',
         description: 'Secure and control all entry points to prevent unauthorized physical access.',
         impacts: ['magnitude'],
-        cia: ['C', 'A']
+        cia: ['C', 'A'],
+        ciaScore: 2
     },
     {
         id: 'A.7.4',
@@ -170,7 +190,8 @@ const ISO_27001_CONTROLS = [
         category: 'Physical',
         description: 'Use surveillance systems (e.g., CCTV) to monitor premises for unauthorized physical access.',
         impacts: ['frequency'],
-        cia: ['C', 'A']
+        cia: ['C', 'A'],
+        ciaScore: 2
     },
     {
         id: 'A.7.7',
@@ -178,7 +199,8 @@ const ISO_27001_CONTROLS = [
         category: 'Physical',
         description: 'Require employees to lock their screens when leaving their desks and keep sensitive papers out of sight.',
         impacts: ['magnitude'],
-        cia: ['C']
+        cia: ['C'],
+        ciaScore: 1
     },
     {
         id: 'A.7.11',
@@ -186,7 +208,8 @@ const ISO_27001_CONTROLS = [
         category: 'Physical',
         description: 'Protect utilities like electricity, water, and telecommunications to prevent service interruptions.',
         impacts: ['magnitude'],
-        cia: ['A']
+        cia: ['A'],
+        ciaScore: 1
     },
     {
         id: 'A.7.14',
@@ -194,7 +217,8 @@ const ISO_27001_CONTROLS = [
         category: 'Physical',
         description: 'Securely dispose of or reuse equipment containing storage media to prevent data leakage.',
         impacts: ['magnitude'],
-        cia: ['C']
+        cia: ['C'],
+        ciaScore: 1
     },
 
     // --- Technological Controls ---
@@ -204,7 +228,8 @@ const ISO_27001_CONTROLS = [
         category: 'Technological',
         description: 'Protect user devices (laptops, mobiles) through security configurations and policies.',
         impacts: ['magnitude'],
-        cia: ['C', 'I', 'A']
+        cia: ['C', 'I', 'A'],
+        ciaScore: 3
     },
     {
         id: 'A.8.2',
@@ -212,7 +237,8 @@ const ISO_27001_CONTROLS = [
         category: 'Technological',
         description: 'Restrict and control the use of privileged access rights (e.g., administrator accounts).',
         impacts: ['magnitude'],
-        cia: ['C', 'I']
+        cia: ['C', 'I'],
+        ciaScore: 2
     },
     {
         id: 'A.8.3',
@@ -220,7 +246,8 @@ const ISO_27001_CONTROLS = [
         category: 'Technological',
         description: 'Enforce access control policies to restrict access to information and application functions.',
         impacts: ['magnitude'],
-        cia: ['C']
+        cia: ['C'],
+        ciaScore: 1
     },
     {
         id: 'A.8.5',
@@ -228,7 +255,8 @@ const ISO_27001_CONTROLS = [
         category: 'Technological',
         description: 'Implement strong authentication mechanisms to verify the identity of users.',
         impacts: ['magnitude'],
-        cia: ['C', 'I']
+        cia: ['C', 'I'],
+        ciaScore: 2
     },
     {
         id: 'A.8.6',
@@ -236,7 +264,8 @@ const ISO_27001_CONTROLS = [
         category: 'Technological',
         description: 'Monitor and plan for system capacity to ensure required performance and availability.',
         impacts: ['magnitude'],
-        cia: ['A']
+        cia: ['A'],
+        ciaScore: 1
     },
     {
         id: 'A.8.7',
@@ -244,7 +273,8 @@ const ISO_27001_CONTROLS = [
         category: 'Technological',
         description: 'Deploy anti-malware software and other controls to protect against malicious code.',
         impacts: ['magnitude', 'frequency'],
-        cia: ['C', 'I', 'A']
+        cia: ['C', 'I', 'A'],
+        ciaScore: 3
     },
     {
         id: 'A.8.8',
@@ -252,7 +282,8 @@ const ISO_27001_CONTROLS = [
         category: 'Technological',
         description: 'Identify, assess, and remediate technical vulnerabilities in a timely manner.',
         impacts: ['magnitude', 'frequency'],
-        cia: ['C', 'I', 'A']
+        cia: ['C', 'I', 'A'],
+        ciaScore: 3
     },
     {
         id: 'A.8.9',
@@ -260,7 +291,8 @@ const ISO_27001_CONTROLS = [
         category: 'Technological',
         description: 'Establish and maintain secure configurations for all hardware and software.',
         impacts: ['magnitude'],
-        cia: ['I', 'A']
+        cia: ['I', 'A'],
+        ciaScore: 2
     },
     {
         id: 'A.8.10',
@@ -268,7 +300,8 @@ const ISO_27001_CONTROLS = [
         category: 'Technological',
         description: 'Use tools and procedures to securely and permanently delete information when no longer required.',
         impacts: ['magnitude'],
-        cia: ['C']
+        cia: ['C'],
+        ciaScore: 1
     },
     {
         id: 'A.8.11',
@@ -276,7 +309,8 @@ const ISO_27001_CONTROLS = [
         category: 'Technological',
         description: 'Use techniques like pseudonymization or anonymization to limit the exposure of sensitive data.',
         impacts: ['magnitude'],
-        cia: ['C']
+        cia: ['C'],
+        ciaScore: 1
     },
     {
         id: 'A.8.12',
@@ -284,7 +318,8 @@ const ISO_27001_CONTROLS = [
         category: 'Technological',
         description: 'Implement technical controls to detect and prevent the unauthorized disclosure of sensitive information.',
         impacts: ['magnitude'],
-        cia: ['C']
+        cia: ['C'],
+        ciaScore: 1
     },
     {
         id: 'A.8.13',
@@ -292,7 +327,8 @@ const ISO_27001_CONTROLS = [
         category: 'Technological',
         description: 'Perform regular backups of information, software, and systems.',
         impacts: ['magnitude'],
-        cia: ['A']
+        cia: ['A'],
+        ciaScore: 1
     },
     {
         id: 'A.8.14',
@@ -300,7 +336,8 @@ const ISO_27001_CONTROLS = [
         category: 'Technological',
         description: 'Implement redundant components or systems to ensure availability in case of a failure.',
         impacts: ['magnitude'],
-        cia: ['A']
+        cia: ['A'],
+        ciaScore: 1
     },
     {
         id: 'A.8.15',
@@ -308,7 +345,8 @@ const ISO_27001_CONTROLS = [
         category: 'Technological',
         description: 'Generate, store, and review logs of user activities, exceptions, and security events.',
         impacts: ['magnitude', 'frequency'],
-        cia: ['C', 'I', 'A']
+        cia: ['C', 'I', 'A'],
+        ciaScore: 3
     },
     {
         id: 'A.8.16',
@@ -316,7 +354,8 @@ const ISO_27001_CONTROLS = [
         category: 'Technological',
         description: 'Monitor networks, systems, and applications to detect anomalous behavior and potential security incidents.',
         impacts: ['frequency'],
-        cia: ['C', 'I', 'A']
+        cia: ['C', 'I', 'A'],
+        ciaScore: 3
     },
     {
         id: 'A.8.20',
@@ -324,7 +363,8 @@ const ISO_27001_CONTROLS = [
         category: 'Technological',
         description: 'Manage and control networks to protect information in systems and applications.',
         impacts: ['magnitude'],
-        cia: ['C', 'I']
+        cia: ['C', 'I'],
+        ciaScore: 2
     },
     {
         id: 'A.8.22',
@@ -332,7 +372,8 @@ const ISO_27001_CONTROLS = [
         category: 'Technological',
         description: 'Divide networks into segments to limit the impact of a security compromise.',
         impacts: ['magnitude'],
-        cia: ['C', 'I']
+        cia: ['C', 'I'],
+        ciaScore: 2
     },
     {
         id: 'A.8.23',
@@ -340,7 +381,8 @@ const ISO_27001_CONTROLS = [
         category: 'Technological',
         description: 'Implement controls to manage access to external websites to prevent exposure to malicious content.',
         impacts: ['frequency'],
-        cia: ['C', 'I']
+        cia: ['C', 'I'],
+        ciaScore: 2
     },
     {
         id: 'A.8.24',
@@ -348,7 +390,8 @@ const ISO_27001_CONTROLS = [
         category: 'Technological',
         description: 'Use encryption to protect the confidentiality and integrity of information.',
         impacts: ['magnitude'],
-        cia: ['C', 'I']
+        cia: ['C', 'I'],
+        ciaScore: 2
     },
     {
         id: 'A.8.25',
@@ -356,7 +399,8 @@ const ISO_27001_CONTROLS = [
         category: 'Technological',
         description: 'Integrate security throughout the entire software development lifecycle (SDLC).',
         impacts: ['magnitude'],
-        cia: ['C', 'I', 'A']
+        cia: ['C', 'I', 'A'],
+        ciaScore: 3
     },
     {
         id: 'A.8.28',
@@ -364,7 +408,8 @@ const ISO_27001_CONTROLS = [
         category: 'Technological',
         description: 'Follow secure coding practices to prevent common vulnerabilities in software.',
         impacts: ['magnitude'],
-        cia: ['C', 'I', 'A']
+        cia: ['C', 'I', 'A'],
+        ciaScore: 3
     },
     {
         id: 'A.8.31',
@@ -372,6 +417,7 @@ const ISO_27001_CONTROLS = [
         category: 'Technological',
         description: 'Separate development, testing, and production environments to reduce the risk of unauthorized access or changes.',
         impacts: ['magnitude'],
-        cia: ['C', 'I', 'A']
+        cia: ['C', 'I', 'A'],
+        ciaScore: 3
     }
 ];

@@ -24,6 +24,16 @@
             <p class="text-gray-500">A tool for managing your Information Security Management System and preparing for ISO 27001 assessments.</p>
         </header>
 
+        <div class="card mb-4">
+            <div class="p-4">
+                <h3 class="font-bold mb-2">Scope Controls by CIA Score</h3>
+                <div class="flex items-center space-x-4" id="cia-filter">
+                    <label class="flex items-center"><input type="radio" name="cia-score" value="1" class="mr-1" checked> Show All</label>
+                    <label class="flex items-center"><input type="radio" name="cia-score" value="2" class="mr-1"> Medium (2+) &amp; High (3)</label>
+                    <label class="flex items-center"><input type="radio" name="cia-score" value="3" class="mr-1"> High (3) Only</label>
+                </div>
+            </div>
+        </div>
         <main id="isms-app">
             <!-- ISMS content will be rendered here by isms.js -->
         </main>
