@@ -1,71 +1,99 @@
 # Secure Start
 
-This is a browser-based tool to help small and medium companies start their security journey. It provides an out-of-the-box ISMS tool with policies and standards, a risk register, and a self-assessment based upon ISO 27001. It helps prove that they are doing a good job (or not) via a nice dashboard and reports.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Status: Buildless](https://img.shields.io/badge/status-buildless-green.svg)](https://github.com/buildless/buildless)
 
-## Features
+**A browser-based tool to help small and medium companies start their security journey.**
 
-*   **FAIR-Inspired Methodology**: The calculations are based on a simplified but powerful model inspired by the FAIR™ framework, focusing on Loss Event Frequency and Loss Magnitude.
-*   **Detailed Risk Scenarios**: Add and manage multiple risk scenarios, each with its own detailed parameters.
-*   **PERT Distribution for Uncertainty**: Uses a PERT (Program Evaluation and Review Technique) distribution to model financial loss and event frequency, providing a more realistic, weighted average for SLE and ARO.
-*   **Monte Carlo Simulation**: Runs a lightweight Monte Carlo simulation in the browser to generate a distribution of potential annual losses, providing not just a mean ALE but also a 90th percentile value for more conservative planning.
-*   **ISO 27001:2022 Control Library**: Includes a comprehensive, categorized library of ISO 27001:2022 controls. You can mark controls as "implemented" and set their effectiveness to see a direct impact on risk calculations.
-*   **Intelligent Control Suggestions**: Recommends applicable ISO controls based on the scenario's description and its confidentiality, integrity, and availability impact profile.
-*   **Control Strength Analysis**: Factor in the effectiveness of your security controls to see their impact on reducing risk.
-*   **Live Risk Preview**: See the calculated SLE, ARO, and ALE update in real-time as you input data.
-*   **Customizable Risk Thresholds**: Define your own financial thresholds for Low, Medium, High, and Critical risk levels.
-*   **Clean, Responsive Interface**: Built with Tailwind CSS for a modern, easy-to-use experience on any device.
+Secure Start provides an out-of-the-box ISMS tool with policies and standards, a powerful risk register, a self-assessment based upon ISO 27001, and clear dashboards to track progress.
 
-## ISMS Management Module
+---
 
-In addition to the risk calculator, this tool now includes a module for managing a basic Information Security Management System (ISMS). Accessible via the `isms.html` file, this module helps you track the implementation of ISO 27001 controls and maintain a simple audit log.
+## Table of Contents
 
-*   **Statement of Applicability (SoA)**: Track the status and justification for each ISO 27001 control.
-*   **Simple Audit Log**: Manually log findings, observations, and notes against specific controls.
-*   **Client-Side Storage**: All data for the ISMS module is stored locally in your browser's `localStorage`.
+- [Core Modules](#core-modules)
+- [Key Features](#key-features)
+- [Enterprise-Grade Security](#enterprise-grade-security)
+- [Technology Stack](#technology-stack)
+- [How to Use](#how-to-use)
+- [Risk Calculation Methodology](#risk-calculation-methodology)
+- [Screenshots](#screenshots)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
+## Core Modules
+
+Secure Start is organized into several interconnected modules, each accessible via the main navigation:
+
+-   **Dashboard (`dashboard.html`)**: Provides a high-level overview of the security posture, including risk distribution and control implementation status.
+-   **Risk Register (`index.html`)**: The core of the application. Here, you can define, analyze, and track risk scenarios using a simple but effective methodology.
+-   **ISMS Overview (`isms.html`)**: Manage your Information Security Management System. Track the implementation status, justification, and audit notes for each ISO 27001:2022 control.
+-   **Assessment (`assessment.html`)**: Conduct a self-assessment against the ISO 27001 standard to identify gaps and prioritize improvements.
+-   **Policies (`policies.html`)**: A library of starter security policies that can be adapted for your organization.
+
+## Key Features
+
+-   **Simplified Risk Analysis**: Instead of complex frameworks, Secure Start uses a straightforward `Likelihood * Impact` model to calculate a risk score, which is then modified by the effectiveness of implemented controls.
+-   **ISO 27001:2022 Control Library**: A comprehensive and categorized library of ISO 27001:2022 controls. You can mark controls as implemented and set their effectiveness to see a direct impact on risk calculations.
+-   **Threat Modeling Library**: Includes a library of common threats based on the STRIDE framework to help you identify relevant risks for your scenarios.
+-   **Intelligent Control Suggestions**: Recommends applicable ISO controls based on the scenario's description and its confidentiality, integrity, and availability impact profile.
+-   **Data Management**:
+    -   **Import/Export**: Save your entire risk register (scenarios and control states) to a JSON file for backup or sharing.
+    -   **Load Examples**: Instantly load a set of pre-defined example scenarios to see how the tool works.
+    -   **Clone Scenarios**: Quickly duplicate an existing risk scenario to use it as a template for a new one.
+    -   **Client-Side Storage**: All data is stored locally in your browser's `localStorage`, meaning no data is sent to any server.
+-   **Dynamic UI**:
+    -   **Live Risk Preview**: See the calculated risk level update in real-time as you input data.
+    -   **Interactive Charts**: The risk portfolio and dashboard are visualized with interactive charts powered by Chart.js.
+    -   **Dark Mode**: Switch between light and dark themes for comfortable viewing in any environment.
+    -   **Collapsible Sections**: A clean, organized interface where sections can be expanded or collapsed as needed.
 
 ## Enterprise-Grade Security
 
 This project is designed with security as a priority. While maintaining its simplicity and portability as a **buildless** application, it incorporates modern security features to protect against common web vulnerabilities.
 
-*   **Content Security Policy (CSP)**: The application uses a strict CSP to prevent a wide range of attacks, including Cross-Site Scripting (XSS). It does this by explicitly defining which sources of content (scripts, styles, fonts) are trusted and can be loaded by the browser.
-*   **Subresource Integrity (SRI)**: All third-party resources (like Tailwind CSS and Chart.js) are loaded with an integrity hash. This ensures that the files fetched from the Content Delivery Network (CDN) have not been tampered with or compromised. If the hash of the fetched file does not match the expected hash, the browser will refuse to load it.
+-   **Content Security Policy (CSP)**: The application uses a strict CSP to prevent a wide range of attacks, including Cross-Site Scripting (XSS).
+-   **Subresource Integrity (SRI)**: All third-party resources (like Tailwind CSS and Chart.js) are loaded with an integrity hash to ensure they have not been tampered with.
 
-This layered security approach makes the tool safer to use, especially in corporate environments.
+## Technology Stack
+
+-   **HTML5**
+-   **CSS3** with **Tailwind CSS**
+-   **Vanilla JavaScript (ES6+)**
+-   **Chart.js** for data visualization
 
 ## How to Use
 
+Getting started with Secure Start is incredibly simple:
+
 1.  Clone or download this repository.
-2.  Open the `index.html` file in your web browser for the Risk Register, or open `isms.html` for the ISMS Management Module.
+2.  Open any of the `*.html` files (e.g., `index.html`) in your web browser.
 
-That's it! The application is entirely self-contained, with navigation links provided between all modules.
+That's it! There are no build steps or dependencies to install.
 
-## How It Works
+## Risk Calculation Methodology
 
-The calculator provides a robust, simulation-based approach to quantifying cyber risk. Here’s a breakdown of the methodology:
+The risk calculation is designed to be simple yet effective.
 
-### 1. Modeling Uncertainty with PERT
+1.  **Inherent Risk Score**: For each scenario, an inherent risk score is calculated:
+    `Inherent Risk Score = Likelihood * Impact`
+    -   **Likelihood**: A rating from 1 (Low) to 4 (Very High).
+    -   **Impact**: A rating from 1 (Low) to 4 (Very High).
 
-For each risk scenario, you provide a **Minimum**, **Most Likely**, and **Maximum** estimate for both **Financial Loss** (the impact of a single event) and **Annual Frequency** (how often the event might occur). The tool uses these three points to create a [PERT distribution](https://en.wikipedia.org/wiki/PERT_distribution), which is a continuous probability distribution that provides a more realistic, weighted-average model for uncertain variables compared to a simple average.
+2.  **Control Effectiveness**: The effectiveness of applicable ISO 27001 controls reduces the likelihood of the risk.
+    -   The average effectiveness of all selected controls is calculated (0-100%).
+    -   This is converted into a `likelihoodModifier`. A 100% effective control set reduces the likelihood by a factor of 0.5.
 
-### 2. Monte Carlo Simulation
+3.  **Residual Risk Score**: The final score is calculated by applying the modifier:
+    `Residual Risk Score = (Likelihood * likelihoodModifier) * Impact`
 
-Instead of calculating a single, static outcome, the tool runs a **Monte Carlo simulation** with 10,000 trials for each scenario directly in your browser. In each trial, it:
-1.  Picks a random **Single Loss Expectancy (SLE)** value from the Financial Loss PERT distribution.
-2.  Picks a random **Annualized Rate of Occurrence (ARO)** value from the Annual Frequency PERT distribution.
-3.  Calculates the **Annualized Loss Expectancy (ALE)** for that trial as `ALE = SLE * ARO`.
+This residual score is then mapped to a risk level (Low, Medium, High, Critical) to determine its priority.
 
-This process generates a distribution of 10,000 possible ALE outcomes for the scenario.
+## Screenshots
 
-### 3. Calculating Residual Risk with Controls
-
-Security controls reduce the likelihood or impact of a threat. The tool models this by applying a **Residual Risk Modifier** based on the controls you've marked as "implemented" from the ISO 27001 library.
-
-*   Each implemented control has an **Effectiveness** rating (0-100%).
-*   This is converted into a risk reduction factor (e.g., 75% effectiveness means a `0.25` modifier).
-*   The tool multiplies the factors of all applicable controls to get a `combinedModifier`.
-*   This modifier is then applied to both the SLE and ARO values in the simulation, reducing the "inherent" risk to a "residual" risk.
-
-The final results displayed in the table—**Mean SLE, Mean ARO, Mean ALE, and 90th %ile ALE**—are all calculated from the distribution of these final, residual risk values.
+*(To be added: Add screenshots of the dashboard, risk register, and ISMS module here.)*
 
 ## Contributing
 
