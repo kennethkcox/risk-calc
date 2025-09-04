@@ -1,11 +1,22 @@
 document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('policies-container');
     const searchInput = document.getElementById('policy-search');
+    const modal = document.getElementById('policy-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalContent = document.getElementById('modal-content');
+    const closeModal = document.getElementById('modal-close');
 
     if (!container || typeof policies === 'undefined') {
         container.innerHTML = '<div class="card"><div class="p-4 text-center"><p class="text-red-500">Error: Policies could not be loaded.</p></div></div>';
         return;
     }
+
+    const openModalWithPolicy = (policy) => {
+        modalTitle.textContent = policy.title;
+        // Simple content formatting
+        modalContent.innerHTML = policy.content.replace(/\n/g, '<br>');
+        modal.classList.remove('hidden');
+    };
 
     const renderPolicies = (policiesToRender) => {
         container.innerHTML = ''; // Clear existing content
@@ -40,7 +51,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             policiesByCategory[category].forEach(policy => {
                 const policyCard = document.createElement('div');
-                policyCard.className = 'bg-gray-50 p-4 rounded-lg border border-gray-200 flex flex-col';
+                policyCard.className = 'bg-gray-50 p-4 rounded-lg border border-gray-200 flex flex-col cursor-pointer hover:shadow-md transition-shadow';
+
+                policyCard.addEventListener('click', () => openModalWithPolicy(policy));
 
                 const policyTitle = document.createElement('h3');
                 policyTitle.className = 'font-bold text-lg mb-2';
@@ -71,5 +84,14 @@ document.addEventListener('DOMContentLoaded', () => {
                    policy.description.toLowerCase().includes(searchTerm);
         });
         renderPolicies(filteredPolicies);
+    });
+
+    // Modal close functionality
+    const closeTheModal = () => modal.classList.add('hidden');
+    closeModal.addEventListener('click', closeTheModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeTheModal();
+        }
     });
 });
