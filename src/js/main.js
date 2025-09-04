@@ -739,16 +739,26 @@ function renderControlLibrary(searchTerm = '', categoryFilter = '') {
         container.appendChild(fieldset);
     }
 }
-
 function setupCollapsible(headerId, contentId, iconId) {
     const header = document.getElementById(headerId);
     const content = document.getElementById(contentId);
     const icon = document.getElementById(iconId);
 
     if (header && content && icon) {
+        // Check if content is already open from a previous session
+        const isOpen = localStorage.getItem(contentId) === 'true';
+        if (isOpen) {
+            content.style.display = 'block';
+            icon.classList.add('rotate-180');
+        } else {
+            content.style.display = 'none';
+        }
+
         header.addEventListener('click', () => {
-            content.classList.toggle('open');
-            icon.classList.toggle('open');
+            const isCurrentlyOpen = content.style.display === 'block';
+            content.style.display = isCurrentlyOpen ? 'none' : 'block';
+            icon.classList.toggle('rotate-180', !isCurrentlyOpen);
+            localStorage.setItem(contentId, !isCurrentlyOpen);
         });
     }
 }
@@ -758,10 +768,12 @@ function openSectionByDefault(contentId, iconId) {
     const icon = document.getElementById(iconId);
 
     if (content && icon) {
-        content.classList.add('open');
-        icon.classList.add('open');
+        content.style.display = 'block';
+        icon.classList.add('rotate-180');
+        localStorage.setItem(contentId, 'true');
     }
 }
+
 
 window.addEventListener('DOMContentLoaded', () => {
     // Setup all collapsible sections
@@ -772,83 +784,15 @@ window.addEventListener('DOMContentLoaded', () => {
     setupCollapsible('risk-chart-header', 'risk-chart-content', 'risk-chart-toggle-icon');
     setupCollapsible('risk-table-header', 'risk-table-content', 'risk-table-toggle-icon');
 
-    // Open the "Add New Risk Scenario" section by default
-    openSectionByDefault('input-form-content', 'input-form-toggle-icon');
-
-    // --- New Theme Switcher Logic ---
-    const themeSwitcherContainer = document.getElementById('theme-switcher-container');
-    const THEME_STORAGE_KEY = 'riskCalculatorTheme';
-
-    function applyTheme(theme) {
-        if (theme === 'dark') {
-            document.documentElement.setAttribute('data-theme', 'dark');
-        } else {
-            document.documentElement.removeAttribute('data-theme');
-        }
+    // Open the "Add New Risk Scenario" section by default only on first visit
+    if (localStorage.getItem('input-form-content') === null) {
+        openSectionByDefault('input-form-content', 'input-form-toggle-icon');
     }
-
-    function createThemeSwitcher(currentTheme) {
-        const label = document.createElement('label');
-        label.htmlFor = 'theme-toggle-checkbox';
-        label.className = 'theme-toggle';
-        label.setAttribute('title', 'Toggle dark mode');
-
-        const input = document.createElement('input');
-        input.type = 'checkbox';
-        input.id = 'theme-toggle-checkbox';
-        input.className = 'hidden';
-        input.checked = currentTheme === 'dark';
-
-        const indicator = document.createElement('div');
-        indicator.className = 'theme-toggle-indicator';
-
-        label.appendChild(input);
-        label.appendChild(indicator);
-
-        input.addEventListener('change', () => {
-            const newTheme = input.checked ? 'dark' : 'light';
-            localStorage.setItem(THEME_STORAGE_KEY, newTheme);
-            applyTheme(newTheme);
-            // Re-render the main app to update chart colors
-            renderApp();
-
-            // If the details modal is open, re-render the histogram
-            if (!detailsModal.classList.contains('hidden')) {
-                const scenarioIndex = detailsModal.dataset.scenarioIndex;
-                if (scenarioIndex !== undefined && calculatedScenarios[scenarioIndex]) {
-                    renderHistogram(calculatedScenarios[scenarioIndex].rawAles);
-                }
-            }
-        });
-
-        themeSwitcherContainer.appendChild(label);
-    }
-
-    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const initialTheme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
-
-    applyTheme(initialTheme);
-    createThemeSwitcher(initialTheme);
-
-    // --- End of Theme Switcher Logic ---
-
-    // --- New "Load Examples" Logic ---
-    const loadExamplesButton = document.getElementById('load-examples-btn');
-    loadExamplesButton.addEventListener('click', () => {
-        showConfirmModal(() => {
-            riskScenarios = [...exampleData];
-            saveState();
-            renderApp();
-        }, 'Load Example Scenarios?', 'This will overwrite your current scenarios. Are you sure?');
-    });
-    // --- End of "Load Examples" Logic ---
 
     initializeScenarios();
-    initializeControls();
-    initializeLivePreviewWorker();
+    initializeControls(); // From controls.js
     renderApp();
-    renderControlLibrary();
-    renderThreatLibrary();
+    renderControlLibrary(); // From controls.js
+    renderThreatLibrary(); // From threats.js
     renderApplicableThreats();
 });
