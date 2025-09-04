@@ -1,6 +1,6 @@
-# Quantitative Cyber Risk Calculator
+# Secure Start
 
-This is a sophisticated, browser-based tool for performing quantitative cyber risk analysis. It is designed to help security professionals and decision-makers quantify cyber risk in financial terms, enabling better-informed security investments and risk management strategies. The calculator is inspired by the principles of the FAIR™ (Factor Analysis of Information Risk) framework.
+This is a browser-based tool to help small and medium companies start their security journey. It provides an out-of-the-box ISMS tool with policies and standards, a risk register, and a self-assessment based upon ISO 27001. It helps prove that they are doing a good job (or not) via a nice dashboard and reports.
 
 ## Features
 
@@ -35,9 +35,9 @@ This layered security approach makes the tool safer to use, especially in corpor
 ## How to Use
 
 1.  Clone or download this repository.
-2.  Open the `index.html` file in your web browser for the Risk Calculator, or open `isms.html` for the ISMS Management Module.
+2.  Open the `index.html` file in your web browser for the Risk Register, or open `isms.html` for the ISMS Management Module.
 
-That's it! The application is entirely self-contained, with navigation links provided between the two modules.
+That's it! The application is entirely self-contained, with navigation links provided between all modules.
 
 ## How It Works
 
