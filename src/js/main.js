@@ -13,83 +13,40 @@ const inputs = {
     conf_impact: document.getElementById('conf_impact'),
     integ_impact: document.getElementById('integ_impact'),
     avail_impact: document.getElementById('avail_impact'),
-    min_loss: document.getElementById('min_loss'),
-    likely_loss: document.getElementById('likely_loss'),
-    max_loss: document.getElementById('max_loss'),
-    min_freq: document.getElementById('min_freq'),
-    likely_freq: document.getElementById('likely_freq'),
-    max_freq: document.getElementById('max_freq'),
+    likelihood: document.getElementById('likelihood'),
+    impact: document.getElementById('impact'),
 };
 
-const thresholdInputs = {
-    medium: document.getElementById('medium_threshold'),
-    high: document.getElementById('high_threshold'),
-    critical: document.getElementById('critical_threshold'),
+// Thresholds are now based on a simple risk score (Likelihood * Impact)
+const riskScoreThresholds = {
+    medium: 4,   // Score of 4-7 is Medium
+    high: 8,     // Score of 8-11 is High
+    critical: 12 // Score of 12+ is Critical
 };
 
 const previewElements = {
-    sle: document.getElementById('sle-preview'),
-    aro: document.getElementById('aro-preview'),
-    ale: document.getElementById('ale-preview'),
     level: document.getElementById('level-preview'),
 };
 
 const exampleData = [
-    { scenario: 'Ransomware encrypts primary file server', min_loss: 50000, likely_loss: 150000, max_loss: 500000, min_freq: 0.1, likely_freq: 0.5, max_freq: 1, freq_controls: 3, conf_impact: 1, integ_impact: 2, avail_impact: 3, c_mit: 5, i_mit: 3, a_mit: 2 },
-    { scenario: 'Successful phishing of finance executive', min_loss: 25000, likely_loss: 75000, max_loss: 200000, min_freq: 0.5, likely_freq: 2, max_freq: 5, freq_controls: 2, conf_impact: 3, integ_impact: 3, avail_impact: 1, c_mit: 3, i_mit: 4, a_mit: 5 },
-    { scenario: 'Cloud storage misconfiguration exposes PII', min_loss: 100000, likely_loss: 500000, max_loss: 2000000, min_freq: 0.05, likely_freq: 0.2, max_freq: 0.5, freq_controls: 4, conf_impact: 3, integ_impact: 1, avail_impact: 1, c_mit: 2, i_mit: 5, a_mit: 5 },
+    { scenario: 'Ransomware encrypts primary file server', likelihood: "3", impact: "4", internet_exposure: "High", conf_impact: "2", integ_impact: "3", avail_impact: "3", applicableControls: ["A.5.10", "A.5.14"], applicableThreats: ["T0859"] },
+    { scenario: 'Successful phishing of finance executive', likelihood: "4", impact: "3", internet_exposure: "Limited", conf_impact: "3", integ_impact: "3", avail_impact: "1", applicableControls: ["A.8.2", "A.8.3"], applicableThreats: ["T0861"] },
+    { scenario: 'Cloud storage misconfiguration exposes PII', likelihood: "2", impact: "4", internet_exposure: "High", conf_impact: "3", integ_impact: "1", avail_impact: "2", applicableControls: ["A.7.7", "A.8.28"], applicableThreats: ["T0885"] },
 ];
 
 let riskScenarios = [];
 let calculatedScenarios = [];
 let editIndex = null;
 let riskChart = null;
-let histogramChart = null;
-let livePreviewWorker = null;
 const chartContainer = document.getElementById('chart-container');
-const detailsModal = document.getElementById('details-modal');
-const modalCloseButton = document.getElementById('modal-close-btn');
-const modalTitle = document.getElementById('modal-title');
 
 function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(riskScenarios));
 }
 
-function initializeLivePreviewWorker() {
-    if (window.Worker) {
-        // Only create one worker for the live preview for efficiency
-        if (!livePreviewWorker) {
-            livePreviewWorker = new Worker('src/js/risk-worker.js');
-            livePreviewWorker.onmessage = function(e) {
-                const calculatedData = e.data;
-                if (calculatedData && !calculatedData.error) {
-                    previewElements.sle.textContent = currencyFormatter.format(calculatedData.meanSLE);
-                    previewElements.aro.textContent = calculatedData.meanARO.toFixed(2);
-                    previewElements.ale.textContent = currencyFormatter.format(calculatedData.meanALE);
-                    previewElements.level.textContent = calculatedData.riskLevel;
-                    previewElements.level.className = `mt-1 text-lg font-bold p-2 rounded-md ${calculatedData.riskColorClass}`;
-                } else {
-                    // Handle potential error from worker if needed
-                    previewElements.sle.textContent = '-';
-                    previewElements.aro.textContent = '-';
-                    previewElements.ale.textContent = '-';
-                    previewElements.level.textContent = '-';
-                    previewElements.level.className = 'mt-1 text-lg font-bold p-2 rounded-md bg-gray-200 text-gray-500';
-                }
-            }
-        }
-    }
-}
-
 function initializeScenarios() {
     const savedScenarios = localStorage.getItem(STORAGE_KEY);
-    const parsedScenarios = savedScenarios ? JSON.parse(savedScenarios) : null;
-
-    if (parsedScenarios && parsedScenarios.length > 0) {
-        riskScenarios = parsedScenarios;
-    } else {
-        riskScenarios = [...exampleData];
-    }
+    riskScenarios = savedScenarios ? JSON.parse(savedScenarios) : [...exampleData];
 }
 
 function loadScenarioForEdit(index) {
@@ -106,245 +63,9 @@ function loadScenarioForEdit(index) {
 
     addButton.textContent = 'Update Scenario';
     cancelButton.classList.remove('hidden');
-
     renderApplicableControls(scenarioData.applicableControls || []);
     renderApplicableThreats(scenarioData.applicableThreats || []);
-
-    // Also update the live preview
-    const thresholds = {
-        medium: parseFloat(thresholdInputs.medium.value) || 0,
-        high: parseFloat(thresholdInputs.high.value) || 0,
-        critical: parseFloat(thresholdInputs.critical.value) || 0,
-    };
-    updateLivePreview(thresholds);
-}
-
-// All calculation logic has been moved to src/js/risk-worker.js
-
-const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 });
-
-function renderRow(calculatedData, index) {
-    const newRow = tableBody.insertRow();
-    newRow.className = 'bg-white border-b';
-    newRow.innerHTML = `
-        <td class="px-4 py-3 font-medium text-gray-900">${escapeHTML(calculatedData.scenario)}</td>
-        <td class="px-4 py-3 text-center font-mono">${currencyFormatter.format(calculatedData.meanSLE)}</td>
-        <td class="px-4 py-3 text-center font-mono">${calculatedData.meanARO.toFixed(2)}</td>
-        <td class="px-4 py-3 text-center font-mono">${currencyFormatter.format(calculatedData.meanALE)}</td>
-        <td class="px-4 py-3 text-center font-mono">${currencyFormatter.format(calculatedData.p90ALE)}</td>
-        <td class="px-4 py-3 text-center font-bold ${calculatedData.riskColorClass}">${calculatedData.riskLevel}</td>
-        <td class="px-4 py-3 text-center">
-            <button class="clone-btn text-purple-600 hover:underline mr-2" data-index="${index}">Clone</button>
-            <button class="edit-btn text-blue-600 hover:underline mr-2" data-index="${index}">Edit</button>
-            <button class="details-btn text-green-600 hover:underline" data-index="${index}">Details</button>
-        </td>
-    `;
-}
-
-function getChartJsThemeOptions() {
-    const isDarkMode = document.documentElement.dataset.theme === 'dark';
-    const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
-    const textColor = isDarkMode ? '#f3f4f6' : '#1f2937';
-
-    return {
-        scales: {
-            x: {
-                ticks: { color: textColor },
-                grid: { color: gridColor },
-                title: { color: textColor }
-            },
-            y: {
-                ticks: { color: textColor },
-                grid: { color: gridColor },
-                title: { color: textColor }
-            }
-        },
-        plugins: {
-            legend: {
-                labels: { color: textColor }
-            },
-            tooltip: {
-                titleColor: textColor,
-                bodyColor: textColor,
-                backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
-                borderColor: gridColor
-            }
-        }
-    };
-}
-
-
-function renderRiskChart(calculatedScenarios) {
-    const riskChartCanvas = document.getElementById('risk-chart');
-    const chartPlaceholder = document.getElementById('chart-placeholder');
-    const tablePlaceholder = document.getElementById('table-placeholder');
-    const loadExamplesButton = document.getElementById('load-examples-btn');
-
-    if (calculatedScenarios.length === 0) {
-        riskChartCanvas.classList.add('hidden');
-        chartPlaceholder.classList.remove('hidden');
-        tablePlaceholder.classList.remove('hidden');
-        loadExamplesButton.classList.remove('hidden');
-        if(riskChart) {
-            riskChart.destroy();
-            riskChart = null;
-        }
-        return;
-    }
-    tablePlaceholder.classList.add('hidden');
-    loadExamplesButton.classList.add('hidden');
-    riskChartCanvas.classList.remove('hidden');
-    chartPlaceholder.classList.add('hidden');
-
-    const ctx = riskChartCanvas.getContext('2d');
-    const labels = calculatedScenarios.map(s => s.scenario);
-    const data = calculatedScenarios.map(s => s.meanALE);
-    const backgroundColors = calculatedScenarios.map(s => {
-        if (s.riskLevel === 'Critical') return 'rgba(239, 68, 68, 0.7)'; // red-500
-        if (s.riskLevel === 'High') return 'rgba(249, 115, 22, 0.7)'; // orange-500
-        if (s.riskLevel === 'Medium') return 'rgba(250, 204, 21, 0.7)'; // yellow-400
-        return 'rgba(34, 197, 94, 0.7)'; // green-500
-    });
-
-    if (riskChart) {
-        riskChart.destroy();
-    }
-
-    const themeOptions = getChartJsThemeOptions();
-    const chartOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        indexAxis: 'y',
-        scales: {
-            x: {
-                beginAtZero: true,
-                ticks: {
-                    ...themeOptions.scales.x.ticks,
-                    callback: function(value) {
-                        return currencyFormatter.format(value);
-                    }
-                },
-                grid: themeOptions.scales.x.grid
-            },
-            y: {
-                ticks: themeOptions.scales.y.ticks,
-                grid: themeOptions.scales.y.grid
-            }
-        },
-        plugins: {
-            legend: {
-                display: false
-            },
-            tooltip: {
-                ...themeOptions.plugins.tooltip,
-                callbacks: {
-                    label: function(context) {
-                        let label = context.dataset.label || '';
-                        if (label) {
-                            label += ': ';
-                        }
-                        if (context.parsed.x !== null) {
-                            label += currencyFormatter.format(context.parsed.x);
-                        }
-                        return label;
-                    }
-                }
-            }
-        }
-    };
-
-    riskChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Annualized Loss Expectancy (ALE)',
-                data: data,
-                backgroundColor: backgroundColors,
-                borderColor: backgroundColors.map(c => c.replace('0.7', '1')),
-                borderWidth: 1
-            }]
-        },
-        options: chartOptions
-    });
-}
-
-function renderApplicableThreats(selectedThreatIds = []) {
-    const container = document.getElementById('applicable-threats-container');
-    container.innerHTML = '';
-
-    const allThreats = Object.values(THREAT_FRAMEWORKS).flat();
-
-    if (allThreats.length === 0) {
-        container.innerHTML = '<p class="text-gray-500 text-sm">No threats found in the library.</p>';
-        return;
-    }
-
-    allThreats.forEach(threat => {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'flex items-center';
-
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.id = `applicable-${threat.id}`;
-        checkbox.value = threat.id;
-        checkbox.checked = selectedThreatIds.includes(threat.id);
-        checkbox.className = 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600';
-
-        const label = document.createElement('label');
-        label.htmlFor = `applicable-${threat.id}`;
-        label.className = 'ml-2 text-sm text-gray-600';
-        label.textContent = `${threat.id}: ${threat.name}`;
-
-        wrapper.appendChild(checkbox);
-        wrapper.appendChild(label);
-        container.appendChild(wrapper);
-    });
-}
-
-function updateLivePreview(thresholds) {
-    if (!livePreviewWorker) {
-        console.error("Live preview worker not initialized.");
-        return;
-    }
-
-    const currentValues = {};
-    for (const key in inputs) {
-        currentValues[key] = inputs[key].value;
-    }
-    // Get applicable controls from the form
-    const selectedControls = [];
-    const controlCheckboxes = document.querySelectorAll('#applicable-controls-container input[type="checkbox"]:checked');
-    controlCheckboxes.forEach(cb => selectedControls.push(cb.value));
-    currentValues.applicableControls = selectedControls;
-
-    const selectedThreats = [];
-    const threatCheckboxes = document.querySelectorAll('#applicable-threats-container input[type="checkbox"]:checked');
-    threatCheckboxes.forEach(cb => selectedThreats.push(cb.value));
-    currentValues.applicableThreats = selectedThreats;
-
-    // Show loading state
-    previewElements.sle.textContent = '...';
-    previewElements.aro.textContent = '...';
-    previewElements.ale.textContent = '...';
-    previewElements.level.textContent = '...';
-    previewElements.level.className = 'mt-1 text-lg font-bold p-2 rounded-md bg-gray-200 text-gray-500';
-
-    livePreviewWorker.postMessage({
-        scenarioData: currentValues,
-        thresholds: thresholds,
-        controlStates: getControlStates() // Send a snapshot of all control states
-    });
-}
-
-function updateRiskLevelSummary(thresholds) {
-    const summaryEl = document.getElementById('risk-level-summary');
-    summaryEl.innerHTML = `
-        <span class="text-green-600">Low: &lt; ${currencyFormatter.format(thresholds.medium)}</span>
-        <span class="text-yellow-600">Medium: &lt; ${currencyFormatter.format(thresholds.high)}</span>
-        <span class="text-orange-600">High: &lt; ${currencyFormatter.format(thresholds.critical)}</span>
-        <span class="text-red-600">Critical: &ge; ${currencyFormatter.format(thresholds.critical)}</span>
-    `;
+    updateLivePreview();
 }
 
 function renderApplicableControls(selectedControlIds = []) {
@@ -382,21 +103,58 @@ function renderApplicableControls(selectedControlIds = []) {
     });
 }
 
+function renderApplicableThreats(selectedThreatIds = []) {
+    const container = document.getElementById('applicable-threats-container');
+    container.innerHTML = '';
+
+    const allThreats = Object.values(THREAT_FRAMEWORKS).flat();
+
+    if (allThreats.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 text-sm">No threats found in the library.</p>';
+        return;
+    }
+
+    allThreats.forEach(threat => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'flex items-center';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `applicable-${threat.id}`;
+        checkbox.value = threat.id;
+        checkbox.checked = selectedThreatIds.includes(threat.id);
+        checkbox.className = 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600';
+
+        const label = document.createElement('label');
+        label.htmlFor = `applicable-${threat.id}`;
+        label.className = 'ml-2 text-sm text-gray-600';
+        label.textContent = `${threat.id}: ${threat.name}`;
+
+        wrapper.appendChild(checkbox);
+        wrapper.appendChild(label);
+        container.appendChild(wrapper);
+    });
+}
+
 function resetForm() {
-    Object.values(inputs).forEach(input => { if(input.type !== 'button') input.value = ''; });
-    renderApplicableControls(); // Clear and render the controls list
+    // Clear all text inputs
+    inputs.scenario.value = '';
+
+    // Set dropdowns to default 'Medium'
+    inputs.likelihood.value = "2";
+    inputs.impact.value = "2";
+    inputs.internet_exposure.value = "Limited";
+    inputs.conf_impact.value = "1";
+    inputs.integ_impact.value = "1";
+    inputs.avail_impact.value = "1";
+
+    renderApplicableControls();
     renderApplicableThreats();
     editIndex = null;
     addButton.textContent = 'Add Risk Scenario';
     cancelButton.classList.add('hidden');
     hideError();
-    // Also update the live preview
-    const thresholds = {
-        medium: parseFloat(thresholdInputs.medium.value) || 0,
-        high: parseFloat(thresholdInputs.high.value) || 0,
-        critical: parseFloat(thresholdInputs.critical.value) || 0,
-    };
-    updateLivePreview(thresholds);
+    updateLivePreview();
 }
 
 function saveRiskFromForm() {
@@ -420,166 +178,205 @@ function saveRiskFromForm() {
     currentValues.applicableThreats = selectedThreats;
 
     if (editIndex !== null) {
-        // Update existing scenario
         riskScenarios[editIndex] = currentValues;
     } else {
-        // Add new scenario
         riskScenarios.push(currentValues);
     }
 
-saveState();
+    saveState();
     renderApp();
     resetForm();
 }
 
-function getSuggestedControls(scenario) {
-    const suggestions = new Map(); // Use a Map to store suggestion and its reason
-    const scenarioText = scenario.scenario.toLowerCase();
-    const confImpact = parseInt(scenario.conf_impact, 10) || 0;
-    const integImpact = parseInt(scenario.integ_impact, 10) || 0;
-    const availImpact = parseInt(scenario.avail_impact, 10) || 0;
+function calculateRisk(scenario) {
+    const likelihood = parseInt(scenario.likelihood, 10) || 1;
+    const impact = parseInt(scenario.impact, 10) || 1;
 
-    const implementedControls = getImplementedControls();
-
-    ISO_27001_CONTROLS.forEach(control => {
-        // Skip if already implemented
-        if (implementedControls.includes(control.id)) {
-            return;
-        }
-
-        let relevance = 0;
-        let reason = '';
-
-        // 1. High-priority suggestions based on C-I-A impact of 3
-        if (confImpact === 3 && control.cia.includes('C')) {
-            relevance += 3;
-            reason = 'High Confidentiality Impact';
-        }
-        if (integImpact === 3 && control.cia.includes('I')) {
-            relevance += 3;
-            reason = reason ? `${reason}, High Integrity Impact` : 'High Integrity Impact';
-        }
-        if (availImpact === 3 && control.cia.includes('A')) {
-            relevance += 3;
-            reason = reason ? `${reason}, High Availability Impact` : 'High Availability Impact';
-        }
-
-        // 2. Medium-priority suggestions based on C-I-A impact of 2
-        if (confImpact === 2 && control.cia.includes('C')) {
-            relevance += 1;
-            reason = reason || 'Medium Confidentiality Impact';
-        }
-        if (integImpact === 2 && control.cia.includes('I')) {
-            relevance += 1;
-            reason = reason || 'Medium Integrity Impact';
-        }
-        if (availImpact === 2 && control.cia.includes('A')) {
-            relevance += 1;
-            reason = reason || 'Medium Availability Impact';
-        }
-
-        // 3. Keyword-based suggestions
-        const keywords = {
-            'phishing': 2, 'malware': 2, 'ransomware': 3, 'unauthorized': 2, 'misconfiguration': 2,
-            'disruption': 2, 'leakage': 3, 'theft': 2, 'privacy': 3, 'pii': 3, 'dos': 2, 'denial of service': 2
-        };
-        for (const keyword in keywords) {
-            if (scenarioText.includes(keyword)) {
-                relevance += keywords[keyword];
-                reason = reason || `Keyword: ${keyword}`;
+    // Reduce likelihood based on control effectiveness
+    const implementedControls = getControlStates();
+    const applicableControls = scenario.applicableControls || [];
+    let controlEffectiveness = 0;
+    if (applicableControls.length > 0) {
+        let totalEffectiveness = 0;
+        applicableControls.forEach(controlId => {
+            const controlState = implementedControls[controlId];
+            if (controlState && controlState.implemented) {
+                totalEffectiveness += controlState.effectiveness;
             }
-        }
+        });
+        controlEffectiveness = totalEffectiveness / applicableControls.length;
+    }
 
-        if (relevance > 0) {
-            if (suggestions.has(control.id)) {
-                suggestions.get(control.id).relevance += relevance;
-            } else {
-                suggestions.set(control.id, { id: control.id, relevance });
-            }
-        }
-    });
+    // Reduce likelihood by a factor of control effectiveness. 100% effectiveness reduces likelihood by 50% (factor of 0.5)
+    const likelihoodModifier = 1 - (controlEffectiveness / 200);
+    const modifiedLikelihood = likelihood * likelihoodModifier;
 
-    // Sort suggestions by relevance, highest first
-    const sortedSuggestions = Array.from(suggestions.values())
-        .sort((a, b) => b.relevance - a.relevance);
+    const riskScore = modifiedLikelihood * impact;
 
-    // Return top 5-10 suggestions
-    return sortedSuggestions.slice(0, 10).map(s => s.id);
+    let riskLevel = 'Low';
+    let riskColorClass = 'risk-level-low';
+
+    if (riskScore >= riskScoreThresholds.critical) {
+        riskLevel = 'Critical';
+        riskColorClass = 'risk-level-critical';
+    } else if (riskScore >= riskScoreThresholds.high) {
+        riskLevel = 'High';
+        riskColorClass = 'risk-level-high';
+    } else if (riskScore >= riskScoreThresholds.medium) {
+        riskLevel = 'Medium';
+        riskColorClass = 'risk-level-medium';
+    }
+
+    return { ...scenario, likelihood, impact, riskScore, riskLevel, riskColorClass };
 }
 
-async function renderApp() {
-    const thresholds = {
-        medium: parseFloat(thresholdInputs.medium.value) || 0,
-        high: parseFloat(thresholdInputs.high.value) || 0,
-        critical: parseFloat(thresholdInputs.critical.value) || 0,
+function updateLivePreview() {
+    const scenario = {};
+    for (const key in inputs) {
+        scenario[key] = inputs[key].value;
+    }
+    const calculated = calculateRisk(scenario);
+    previewElements.level.textContent = calculated.riskLevel;
+    previewElements.level.className = `mt-1 text-lg font-bold p-2 rounded-md ${calculated.riskColorClass}`;
+}
+
+function renderRow(calculatedData, originalIndex) {
+    const newRow = tableBody.insertRow();
+    newRow.className = 'bg-white border-b';
+
+    const likelihoodMap = { 1: 'Low', 2: 'Medium', 3: 'High', 4: 'Very High' };
+    const impactMap = { 1: 'Low', 2: 'Medium', 3: 'High', 4: 'Very High' };
+
+    newRow.innerHTML = `
+        <td class="px-4 py-3 font-medium text-gray-900">${escapeHTML(calculatedData.scenario)}</td>
+        <td class="px-4 py-3 text-center">${likelihoodMap[calculatedData.likelihood] || '-'}</td>
+        <td class="px-4 py-3 text-center">${impactMap[calculatedData.impact] || '-'}</td>
+        <td class="px-4 py-3 text-center font-bold ${calculatedData.riskColorClass}">${calculatedData.riskLevel}</td>
+        <td class="px-4 py-3 text-center">
+            <button class="clone-btn text-purple-600 hover:underline mr-2" data-index="${originalIndex}">Clone</button>
+            <button class="edit-btn text-blue-600 hover:underline mr-2" data-index="${originalIndex}">Edit</button>
+        </td>
+    `;
+}
+
+function getChartJsThemeOptions() {
+    const isDarkMode = document.documentElement.dataset.theme === 'dark';
+    const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+    const textColor = isDarkMode ? '#f3f4f6' : '#1f2937';
+
+    return {
+        scales: {
+            x: { ticks: { color: textColor }, grid: { color: gridColor }, title: { color: textColor } },
+            y: { ticks: { color: textColor }, grid: { color: gridColor }, title: { color: textColor } }
+        },
+        plugins: {
+            legend: { labels: { color: textColor } },
+            tooltip: { titleColor: textColor, bodyColor: textColor, backgroundColor: isDarkMode ? '#1f2937' : '#ffffff', borderColor: gridColor }
+        }
     };
+}
 
-    updateRiskLevelSummary(thresholds);
-    tableBody.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-gray-500">
-        <div class="flex justify-center items-center space-x-2">
-            <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <span>Running simulations... This may take a moment.</span>
-        </div>
-    </td></tr>`;
+function renderRiskChart(calculatedScenarios) {
+    const riskChartCanvas = document.getElementById('risk-chart');
+    const chartPlaceholder = document.getElementById('chart-placeholder');
+    const tablePlaceholder = document.getElementById('table-placeholder');
+    const loadExamplesButton = document.getElementById('load-examples-btn');
 
-    calculatedScenarios = []; // Reset the global array
-    const allControlStates = getControlStates();
+    if (calculatedScenarios.length === 0) {
+        riskChartCanvas.classList.add('hidden');
+        chartPlaceholder.classList.remove('hidden');
+        tablePlaceholder.classList.remove('hidden');
+        loadExamplesButton.classList.remove('hidden');
+        if (riskChart) {
+            riskChart.destroy();
+            riskChart = null;
+        }
+        return;
+    }
+    tablePlaceholder.classList.add('hidden');
+    loadExamplesButton.classList.add('hidden');
+    riskChartCanvas.classList.remove('hidden');
+    chartPlaceholder.classList.add('hidden');
 
-    const calculationPromises = riskScenarios.map(scenarioData => {
-        return new Promise((resolve, reject) => {
-            if (!window.Worker) {
-                // Fallback for very old browsers, though not the primary target
-                // This would require bringing calculateRisk back for a non-worker path
-                console.error("Web Workers are not supported in this browser.");
-                reject(new Error("Web Workers not supported."));
-                return;
-            }
-            const worker = new Worker('src/js/risk-worker.js');
-            worker.onmessage = e => {
-                worker.terminate();
-                resolve(e.data);
-            };
-            worker.onerror = e => {
-                worker.terminate();
-                reject(new Error(`Worker error: ${e.message}`));
-            };
-            worker.postMessage({
-                scenarioData: scenarioData,
-                thresholds: thresholds,
-                controlStates: allControlStates
-            });
-        });
+    const ctx = riskChartCanvas.getContext('2d');
+    const labels = calculatedScenarios.map(s => s.scenario);
+    const data = calculatedScenarios.map(s => s.riskScore);
+    const backgroundColors = calculatedScenarios.map(s => {
+        if (s.riskLevel === 'Critical') return 'rgba(153, 27, 27, 0.7)'; // red-800
+        if (s.riskLevel === 'High') return 'rgba(239, 68, 68, 0.7)'; // red-500
+        if (s.riskLevel === 'Medium') return 'rgba(249, 115, 22, 0.7)'; // orange-500
+        return 'rgba(34, 197, 94, 0.7)'; // green-500
     });
 
-    try {
-        const results = await Promise.all(calculationPromises);
-        tableBody.innerHTML = ''; // Clear loading message
-        let hasError = false;
-
-        results.forEach((calculated, index) => {
-            if (calculated && !calculated.error) {
-                calculatedScenarios.push(calculated);
-                renderRow(calculated, index);
-            } else {
-                hasError = true;
-                const originalScenario = riskScenarios[index];
-                showError(`Error calculating scenario: "${originalScenario.scenario}". ${calculated.error || ''}`);
-            }
-        });
-
-        if (!hasError) hideError();
-
-    } catch (error) {
-        console.error("An error occurred during risk calculation:", error);
-        showError("A critical error occurred. Please check the console or refresh the page.");
-        tableBody.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-red-500">Calculation failed. Please refresh.</td></tr>`;
-    } finally {
-        renderRiskChart(calculatedScenarios);
-        updateLivePreview(thresholds);
+    if (riskChart) {
+        riskChart.destroy();
     }
+
+    const themeOptions = getChartJsThemeOptions();
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y',
+        scales: {
+            x: { beginAtZero: true, max: 16, grid: themeOptions.scales.x.grid, ticks: themeOptions.scales.x.ticks },
+            y: { grid: themeOptions.scales.y.grid, ticks: themeOptions.scales.y.ticks }
+        },
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                ...themeOptions.plugins.tooltip,
+                callbacks: {
+                    label: function(context) {
+                        return `Risk Score: ${context.parsed.x.toFixed(2)}`;
+                    }
+                }
+            }
+        }
+    };
+
+    riskChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Risk Score',
+                data: data,
+                backgroundColor: backgroundColors,
+                borderColor: backgroundColors.map(c => c.replace('0.7', '1')),
+                borderWidth: 1
+            }]
+        },
+        options: chartOptions
+    });
+}
+
+function renderApp() {
+    tableBody.innerHTML = '';
+
+    // First, map scenarios to calculated risks, preserving the original index
+    calculatedScenarios = riskScenarios.map((scenario, index) => {
+        const calculated = calculateRisk(scenario);
+        calculated.originalIndex = index; // Attach the original index
+        return calculated;
+    });
+
+    // Sort by risk score, highest first
+    calculatedScenarios.sort((a, b) => b.riskScore - a.riskScore);
+
+    const tablePlaceholder = document.getElementById('table-placeholder');
+    if (riskScenarios.length === 0) {
+        tablePlaceholder.classList.remove('hidden');
+    } else {
+        tablePlaceholder.classList.add('hidden');
+    }
+
+    // Now render using the preserved original index
+    calculatedScenarios.forEach(calculated => {
+        renderRow(calculated, calculated.originalIndex);
+    });
+
+    renderRiskChart(calculatedScenarios);
+    updateLivePreview();
 }
 
 function showError(message) {
@@ -597,117 +394,10 @@ function escapeHTML(str) {
     return p.innerHTML;
 }
 
-function openDetailsModal(index) {
-    const scenario = calculatedScenarios[index];
-    if (!scenario) return;
-
-    detailsModal.dataset.scenarioIndex = index; // Store the index
-    detailsModal.classList.remove('hidden');
-    modalTitle.textContent = `ALE Distribution: ${escapeHTML(scenario.scenario)}`;
-
-    renderHistogram(scenario.rawAles);
-}
-
-function closeDetailsModal() {
-    detailsModal.classList.add('hidden');
-    if (histogramChart) {
-        histogramChart.destroy();
-        histogramChart = null;
-    }
-}
-
-function renderHistogram(ales) {
-    const ctx = document.getElementById('histogram-chart').getContext('2d');
-
-    // Simple binning logic
-    const min = Math.min(...ales);
-    const max = Math.max(...ales);
-    const numBins = 30;
-    const binWidth = (max - min) / numBins;
-    const bins = Array(numBins).fill(0);
-    const labels = [];
-
-    for (let i = 0; i < numBins; i++) {
-        const binStart = min + i * binWidth;
-        labels.push(`${currencyFormatter.format(binStart)}`);
-    }
-
-    ales.forEach(ale => {
-        if (ale < min || ale > max) return; // Should not happen
-        let binIndex = Math.floor((ale - min) / binWidth);
-        if (binIndex === numBins) binIndex--; // Put max value in last bin
-        bins[binIndex]++;
-    });
-
-    if (histogramChart) {
-        histogramChart.destroy();
-    }
-
-    const themeOptions = getChartJsThemeOptions();
-    const chartOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-            y: {
-                ...themeOptions.scales.y,
-                beginAtZero: true,
-                title: { ...themeOptions.scales.y.title, display: true, text: 'Number of Simulated Years (Frequency)' }
-            },
-            x: {
-                ...themeOptions.scales.x,
-                title: { ...themeOptions.scales.x.title, display: true, text: 'Annualized Loss Expectancy (ALE) Bins' }
-            }
-        },
-        plugins: {
-            legend: {
-                display: false
-            },
-            tooltip: {
-                ...themeOptions.plugins.tooltip,
-                 callbacks: {
-                    title: function(context) {
-                        const index = context[0].dataIndex;
-                        const binStart = min + index * binWidth;
-                        const binEnd = binStart + binWidth;
-                         return `ALE: ${currencyFormatter.format(binStart)} - ${currencyFormatter.format(binEnd)}`;
-                    },
-                    label: function(context) {
-                        return `Frequency: ${context.parsed.y}`;
-                    }
-                }
-            }
-        }
-    };
-
-    histogramChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Frequency',
-                data: bins,
-                backgroundColor: 'rgba(59, 130, 246, 0.7)', // blue-500
-                borderColor: 'rgba(59, 130, 246, 1)',
-                borderWidth: 1,
-                barPercentage: 1,
-                categoryPercentage: 1,
-            }]
-        },
-        options: chartOptions
-    });
-}
-
-// Helper functions (mean, quantile, random_normal) are now in the worker.
-
 function exportData() {
     const data = {
         scenarios: riskScenarios,
         controls: getControlStates(),
-        thresholds: {
-            medium: thresholdInputs.medium.value,
-            high: thresholdInputs.high.value,
-            critical: thresholdInputs.critical.value,
-        }
     };
     const json = JSON.stringify(data, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
@@ -730,16 +420,13 @@ function importData(event) {
     reader.onload = function(e) {
         try {
             const data = JSON.parse(e.target.result);
-            if (!data.scenarios || !data.controls || !data.thresholds) {
+            if (!data.scenarios || !data.controls) {
                 throw new Error("Invalid or corrupted JSON file format.");
             }
 
             // Load data
             riskScenarios = data.scenarios;
             saveControlStates(data.controls); // Need to create this function in controls.js
-            thresholdInputs.medium.value = data.thresholds.medium;
-            thresholdInputs.high.value = data.thresholds.high;
-            thresholdInputs.critical.value = data.thresholds.critical;
 
             // Save and re-render
             saveState();
@@ -761,7 +448,6 @@ function importData(event) {
 
 cancelButton.addEventListener('click', resetForm);
 addButton.addEventListener('click', saveRiskFromForm);
-modalCloseButton.addEventListener('click', closeDetailsModal);
 
 document.getElementById('export-btn').addEventListener('click', exportData);
 document.getElementById('import-btn').addEventListener('click', () => document.getElementById('import-file-input').click());
