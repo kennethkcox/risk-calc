@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; style-src 'self' https://rsms.me 'unsafe-inline'; font-src https://rsms.me; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Start - ISMS</title>
+    <title>Secure Start - ISMS Overview</title>
     <script src="https://cdn.tailwindcss.com" integrity="sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="src/css/style.css">
     <link rel="preconnect" href="https://rsms.me/">
@@ -14,43 +14,58 @@
 
     <div class="container">
         <header class="text-center mb-8">
-            <h1 class="text-3xl font-bold">ISMS Management</h1>
-            <p class="text-gray-500">Manage your Information Security Management System and track ISO 27001 controls.</p>
+            <h1 class="text-3xl font-bold">ISMS Implementation Overview</h1>
+            <p class="text-gray-500">Track the progress of your Information Security Management System implementation.</p>
         </header>
 
         <nav class="flex justify-center gap-4 mb-8">
             <a href="dashboard.html" class="btn btn-secondary">Dashboard</a>
             <a href="index.html" class="btn btn-secondary">Risk Register</a>
-            <a href="isms.html" class="btn btn-primary">ISMS Module</a>
+            <a href="isms.html" class="btn btn-primary">ISMS Overview</a>
+            <a href="assessment.html" class="btn btn-secondary">Assessment</a>
             <a href="policies.html" class="btn btn-secondary">Policies</a>
         </nav>
 
-        <div class="card mb-4" id="cia-inputs">
-            <div class="p-4">
-                <h3 class="font-bold mb-2">Set Asset CIA Value to determine Recommended Maturity</h3>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <label for="cia-c" class="block text-sm font-medium">Confidentiality</label>
-                        <input type="number" id="cia-c" name="cia-c" min="1" max="3" value="1" class="table-cell-input mt-1">
+        <main class="space-y-6">
+            <div class="card">
+                <div class="p-6">
+                    <h2 class="text-xl font-bold mb-2">The Plan-Do-Check-Act (PDCA) Cycle</h2>
+                    <p class="text-gray-600">Implementing an Information Security Management System (ISMS) is an iterative process. The PDCA cycle helps you continuously improve your security posture.</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Plan -->
+                <div class="card">
+                    <div class="p-6">
+                        <h3 class="text-lg font-bold text-blue-600">1. Plan</h3>
+                        <p class="mt-2 text-gray-600">Establish the ISMS by defining the scope, policies, objectives, risk assessment process, and a Statement of Applicability. This sets the foundation for your security program.</p>
                     </div>
-                    <div>
-                        <label for="cia-i" class="block text-sm font-medium">Integrity</label>
-                        <input type="number" id="cia-i" name="cia-i" min="1" max="3" value="1" class="table-cell-input mt-1">
+                </div>
+                <!-- Do -->
+                <div class="card">
+                    <div class="p-6">
+                        <h3 class="text-lg font-bold text-green-600">2. Do</h3>
+                        <p class="mt-2 text-gray-600">Implement the plan. This involves applying the selected security controls, conducting security awareness training, and managing the day-to-day operations of the ISMS.</p>
                     </div>
-                    <div>
-                        <label for="cia-a" class="block text-sm font-medium">Availability</label>
-                        <input type="number" id="cia-a" name="cia-a" min="1" max="3" value="1" class="table-cell-input mt-1">
+                </div>
+                <!-- Check -->
+                <div class="card">
+                    <div class="p-6">
+                        <h3 class="text-lg font-bold text-yellow-600">3. Check</h3>
+                        <p class="mt-2 text-gray-600">Monitor and review the ISMS. Conduct internal audits, measure the effectiveness of controls, and regularly review risk assessments to ensure the system is working as intended.</p>
+                    </div>
+                </div>
+                <!-- Act -->
+                <div class="card">
+                    <div class="p-6">
+                        <h3 class="text-lg font-bold text-red-600">4. Act</h3>
+                        <p class="mt-2 text-gray-600">Continuously improve the ISMS. Take corrective and preventive actions based on the results of your monitoring and reviews. Update policies and controls to adapt to new threats.</p>
                     </div>
                 </div>
             </div>
-        </div>
-        <main id="isms-app">
-            <!-- ISMS content will be rendered here by isms.js -->
         </main>
     </div>
-
-    <script src="src/js/iso27001.js" defer></script>
-    <script src="src/js/isms.js" defer></script>
 
 </body>
 </html>
