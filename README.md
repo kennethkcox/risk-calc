@@ -67,6 +67,10 @@ Security controls reduce the likelihood or impact of a threat. The tool models t
 
 The final results displayed in the table—**Mean SLE, Mean ARO, Mean ALE, and 90th %ile ALE**—are all calculated from the distribution of these final, residual risk values.
 
+## Contributing
+
+Contributions are welcome! If you'd like to contribute to the project, please see our [Contributing Guidelines](CONTRIBUTING.md).
+
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
