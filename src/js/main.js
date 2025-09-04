@@ -1,7 +1,6 @@
 const addButton = document.getElementById('add-risk-btn');
 const cancelButton = document.getElementById('cancel-edit-btn');
 const clearDataButton = document.getElementById('clear-data-btn');
-const suggestButton = document.getElementById('suggest-controls-btn');
 const tableBody = document.getElementById('risk-table-body');
 const errorMessage = document.getElementById('error-message');
 
@@ -518,27 +517,6 @@ function handleThreatFilterChange() {
 threatSearchInput.addEventListener('input', handleThreatFilterChange);
 threatFrameworkFilter.addEventListener('change', handleThreatFilterChange);
 
-suggestButton.addEventListener('click', () => {
-    const currentValues = {};
-    for(const key in inputs) {
-        currentValues[key] = inputs[key].value;
-    }
-
-    if (!currentValues.scenario.trim()) {
-        showError("Please enter a scenario description to get suggestions.");
-        return;
-    }
-    hideError();
-
-    const suggestedIds = getSuggestedControls(currentValues);
-    const controlCheckboxes = document.querySelectorAll('#applicable-controls-container input[type="checkbox"]');
-
-    controlCheckboxes.forEach(checkbox => {
-        if (suggestedIds.includes(checkbox.value)) {
-            checkbox.checked = true;
-        }
-    });
-});
 const confirmModal = document.getElementById('confirm-modal');
 const confirmActionButton = document.getElementById('confirm-action-btn');
 const confirmCancelButton = document.getElementById('confirm-cancel-btn');
@@ -578,16 +556,8 @@ clearDataButton.addEventListener('click', () => {
 
 Object.values(inputs).forEach(input => {
     input.addEventListener('input', () => {
-         const thresholds = {
-            medium: parseFloat(thresholdInputs.medium.value) || 0,
-            high: parseFloat(thresholdInputs.high.value) || 0,
-            critical: parseFloat(thresholdInputs.critical.value) || 0,
-        };
-        updateLivePreview(thresholds);
+        updateLivePreview();
     });
-});
-Object.values(thresholdInputs).forEach(input => {
-    input.addEventListener('input', renderApp);
 });
 
 tableBody.addEventListener('click', (event) => {
@@ -777,59 +747,61 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // --- New Theme Switcher Logic ---
     const themeSwitcherContainer = document.getElementById('theme-switcher-container');
-    const THEME_STORAGE_KEY = 'riskCalculatorTheme';
+    if (themeSwitcherContainer) {
+        const THEME_STORAGE_KEY = 'riskCalculatorTheme';
 
-    function applyTheme(theme) {
-        if (theme === 'dark') {
-            document.documentElement.setAttribute('data-theme', 'dark');
-        } else {
-            document.documentElement.removeAttribute('data-theme');
-        }
-    }
-
-    function createThemeSwitcher(currentTheme) {
-        const label = document.createElement('label');
-        label.htmlFor = 'theme-toggle-checkbox';
-        label.className = 'theme-toggle';
-        label.setAttribute('title', 'Toggle dark mode');
-
-        const input = document.createElement('input');
-        input.type = 'checkbox';
-        input.id = 'theme-toggle-checkbox';
-        input.className = 'hidden';
-        input.checked = currentTheme === 'dark';
-
-        const indicator = document.createElement('div');
-        indicator.className = 'theme-toggle-indicator';
-
-        label.appendChild(input);
-        label.appendChild(indicator);
-
-        input.addEventListener('change', () => {
-            const newTheme = input.checked ? 'dark' : 'light';
-            localStorage.setItem(THEME_STORAGE_KEY, newTheme);
-            applyTheme(newTheme);
-            // Re-render the main app to update chart colors
-            renderApp();
-
-            // If the details modal is open, re-render the histogram
-            if (!detailsModal.classList.contains('hidden')) {
-                const scenarioIndex = detailsModal.dataset.scenarioIndex;
-                if (scenarioIndex !== undefined && calculatedScenarios[scenarioIndex]) {
-                    renderHistogram(calculatedScenarios[scenarioIndex].rawAles);
-                }
+        function applyTheme(theme) {
+            if (theme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            } else {
+                document.documentElement.removeAttribute('data-theme');
             }
-        });
+        }
 
-        themeSwitcherContainer.appendChild(label);
+        function createThemeSwitcher(currentTheme) {
+            const label = document.createElement('label');
+            label.htmlFor = 'theme-toggle-checkbox';
+            label.className = 'theme-toggle';
+            label.setAttribute('title', 'Toggle dark mode');
+
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.id = 'theme-toggle-checkbox';
+            input.className = 'hidden';
+            input.checked = currentTheme === 'dark';
+
+            const indicator = document.createElement('div');
+            indicator.className = 'theme-toggle-indicator';
+
+            label.appendChild(input);
+            label.appendChild(indicator);
+
+            input.addEventListener('change', () => {
+                const newTheme = input.checked ? 'dark' : 'light';
+                localStorage.setItem(THEME_STORAGE_KEY, newTheme);
+                applyTheme(newTheme);
+                // Re-render the main app to update chart colors
+                renderApp();
+
+                // If the details modal is open, re-render the histogram
+                if (typeof detailsModal !== 'undefined' && !detailsModal.classList.contains('hidden')) {
+                    const scenarioIndex = detailsModal.dataset.scenarioIndex;
+                    if (scenarioIndex !== undefined && calculatedScenarios[scenarioIndex]) {
+                        renderHistogram(calculatedScenarios[scenarioIndex].rawAles);
+                    }
+                }
+            });
+
+            themeSwitcherContainer.appendChild(label);
+        }
+
+        const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const initialTheme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
+
+        applyTheme(initialTheme);
+        createThemeSwitcher(initialTheme);
     }
-
-    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const initialTheme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
-
-    applyTheme(initialTheme);
-    createThemeSwitcher(initialTheme);
 
     // --- End of Theme Switcher Logic ---
 
@@ -846,7 +818,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
     initializeScenarios();
     initializeControls();
-    initializeLivePreviewWorker();
     renderApp();
     renderControlLibrary();
     renderThreatLibrary();
