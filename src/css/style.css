@@ -402,3 +402,43 @@ legend {
 .soa-maturity:disabled::-webkit-slider-thumb {
     background: var(--secondary-color);
 }
+
+/* Tab Styles */
+.tab-btn {
+    padding: 0.5rem 1rem;
+    font-weight: 600;
+    color: var(--text-color-secondary);
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tab-btn:hover {
+    color: var(--text-color);
+}
+
+.tab-btn.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+
+.threat-card {
+    background-color: var(--input-bg-color);
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.threat-card h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.threat-card h4 {
+    font-weight: 600;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    color: var(--primary-color);
+}
