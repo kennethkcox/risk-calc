@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net/npm/chart.js; style-src 'self' https://rsms.me 'unsafe-inline'; font-src https://rsms.me; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Start - Threat Modeling</title>
+    <script src="https://cdn.tailwindcss.com" integrity="sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="src/css/style.css">
+    <link rel="preconnect" href="https://rsms.me/">
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" integrity="sha384-STiTZ2kjdnc/em4jSELZZ6VypRToc92cA0m6Nppx3J8C4mt0fjMNUm1xnm1yoP96" crossorigin="anonymous">
+</head>
+<body>
+
+    <div class="container">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold">Secure Start</h1>
+            <p class="text-gray-500">Your journey to a strong security posture begins here.</p>
+        </header>
+
+        <nav class="flex justify-center gap-4 mb-8">
+            <a href="dashboard.html" class="btn btn-secondary">Dashboard</a>
+            <a href="index.html" class="btn btn-secondary">Risk Register</a>
+            <a href="isms.html" class="btn btn-secondary">ISMS Overview</a>
+            <a href="assessment.html" class="btn btn-secondary">Assessment</a>
+            <a href="policies.html" class="btn btn-secondary">Policies</a>
+            <a href="threat-modeling.html" class="btn btn-primary">Threat Modeling</a>
+        </nav>
+
+        <!-- Threat Modeling Introduction -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Introduction to Threat Modeling</h2>
+            </div>
+            <div class="p-6">
+                <p class="text-gray-600">Threat modeling is a structured process to identify, analyze, and mitigate potential security threats to a system. By proactively identifying threats, you can design more secure applications and systems from the ground up. This library provides information on common threat modeling frameworks to help you get started.</p>
+            </div>
+        </div>
+
+        <!-- Threat Frameworks -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Threat Modeling Frameworks</h2>
+            </div>
+            <div class="p-6">
+                <div class="flex border-b border-gray-200">
+                    <button id="stride-tab" class="tab-btn active">STRIDE</button>
+                    <button id="dread-tab" class="tab-btn">DREAD</button>
+                </div>
+                <div id="threat-content" class="mt-6">
+                    <!-- Threat information will be dynamically inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="src/js/threats.js" defer></script>
+    <script src="src/js/threat-modeling.js" defer></script>
+
+</body>
+</html>
